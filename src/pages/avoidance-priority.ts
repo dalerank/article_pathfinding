@@ -29,6 +29,7 @@ class AvoidancePriorityScene extends Phaser.Scene {
     simulation!: Simulation;
     mode: PriorityMode = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.mode;
     agentCount = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.agentCount;
+    gateWidth = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.gateWidth;
     clearedAt: number | null = null;
 
     private agentRenderer!: AgentRenderer;
@@ -71,6 +72,7 @@ class AvoidancePriorityScene extends Phaser.Scene {
         configureAvoidancePriority(this.simulation, {
             mode: this.mode,
             agentCount: this.agentCount,
+            gateWidth: this.gateWidth,
         });
     }
 
@@ -122,6 +124,26 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     });
     modeRow.append(modeLabel, modeSelect);
     root.appendChild(modeRow);
+
+    const gateRow = document.createElement("div");
+    gateRow.className = "control-row";
+    const gateLabel = document.createElement("label");
+    gateLabel.textContent = "Gate width";
+    const gateInput = document.createElement("input");
+    gateInput.type = "range";
+    gateInput.min = "20";
+    gateInput.max = "260";
+    gateInput.step = "5";
+    gateInput.value = String(scene.gateWidth);
+    const gateValue = document.createElement("span");
+    gateValue.textContent = `${gateInput.value} px`;
+    gateInput.addEventListener("input", () => {
+        scene.gateWidth = Number(gateInput.value);
+        gateValue.textContent = `${gateInput.value} px`;
+        scene.reset();
+    });
+    gateRow.append(gateLabel, gateInput, gateValue);
+    root.appendChild(gateRow);
 
     const agentsRow = document.createElement("div");
     agentsRow.className = "control-row";
