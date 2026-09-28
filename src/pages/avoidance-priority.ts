@@ -200,7 +200,10 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     hint.style.color = "#8b93a3";
     hint.innerHTML =
         'Синий = низкий приоритет (уступает), оранжевый = высокий (проталкивается). ' +
-        'Часть примеров к статье. <a href="../index.html" style="color:#4fc3f7">Свободный sandbox &rarr;</a>';
+        'Часть примеров к статье. ' +
+        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
+        '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a>';
     root.appendChild(hint);
 
     const tick = () => {

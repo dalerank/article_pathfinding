@@ -17,6 +17,7 @@ export default defineConfig({
                 main: path.resolve(__dirname, "index.html"),
                 narrowGate: path.resolve(__dirname, "examples/narrow-gate.html"),
                 avoidancePriority: path.resolve(__dirname, "examples/avoidance-priority.html"),
+                localAvoidance: path.resolve(__dirname, "examples/local-avoidance.html"),
             },
         },
     },

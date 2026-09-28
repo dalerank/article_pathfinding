@@ -6,11 +6,50 @@ import type { Experiment } from "./Experiment";
 import { configureNarrowGate } from "./NarrowGateExperiment";
 import { assignPriorities, type PriorityMode } from "@/avoidance/AvoidancePriority";
 
+export interface LocalAvoidanceOptions {
+    agentCount: number;
+    circleRadius: number;
+}
+
+export const DEFAULT_LOCAL_AVOIDANCE_OPTIONS: LocalAvoidanceOptions = {
+    agentCount: 20,
+    circleRadius: 220,
+};
+
+/**
+ * Agents placed evenly on a circle, each one's destination is the
+ * diametrically opposite point — everyone has to cross through the center
+ * at once, which is the classic way to show what local avoidance alone
+ * (no global path) actually does.
+ */
+export function configureLocalAvoidance(simulation: Simulation, options: Partial<LocalAvoidanceOptions> = {}): void {
+    const opts = { ...DEFAULT_LOCAL_AVOIDANCE_OPTIONS, ...options };
+    const world = simulation.world;
+
+    world.agents.length = 0;
+    world.obstacles.length = 0;
+    simulation.resetClock();
+
+    const center = { x: world.width / 2, y: world.height / 2 };
+    for (let i = 0; i < opts.agentCount; i++) {
+        const angle = (i / opts.agentCount) * Math.PI * 2;
+        const start = {
+            x: center.x + Math.cos(angle) * opts.circleRadius,
+            y: center.y + Math.sin(angle) * opts.circleRadius,
+        };
+        const destination = {
+            x: center.x - Math.cos(angle) * opts.circleRadius,
+            y: center.y - Math.sin(angle) * opts.circleRadius,
+        };
+        simulation.addAgent(start, { destination });
+    }
+}
+
 export const LocalAvoidanceExperiment: Experiment = {
     id: "avoidance",
     label: "Local Avoidance",
-    setup(_simulation: Simulation): void {
-        throw new Error("LocalAvoidanceExperiment.setup: not implemented yet (Phase 7)");
+    setup(simulation: Simulation): void {
+        configureLocalAvoidance(simulation);
     },
 };
 

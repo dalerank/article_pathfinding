@@ -75,7 +75,8 @@ export class ControlPanel {
         examplesHint.innerHTML =
             'Примеры к статье: ' +
             '<a href="examples/narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
-            '<a href="examples/avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a>';
+            '<a href="examples/avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
+            '<a href="examples/local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a>';
         root.appendChild(examplesHint);
     }
 

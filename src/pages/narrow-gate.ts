@@ -156,7 +156,8 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     hint.innerHTML =
         'Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
-        '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority &rarr;</a>';
+        '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
+        '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a>';
     root.appendChild(hint);
 
     const tick = () => {
