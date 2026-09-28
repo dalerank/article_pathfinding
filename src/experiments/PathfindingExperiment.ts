@@ -5,17 +5,20 @@
 // the other example pages.
 
 import { buildNavMesh } from "@/navigation/NavMeshBuilder";
+import { buildRegionGraph } from "@/navigation/HierarchicalAStar";
 import type { Simulation } from "@/simulation/Simulation";
 import type { Experiment } from "./Experiment";
 
 export interface PathfindingOptions {
     agentCount: number;
     cellSize: number;
+    regionSize: number;
 }
 
 export const DEFAULT_PATHFINDING_OPTIONS: PathfindingOptions = {
     agentCount: 10,
     cellSize: 20,
+    regionSize: 6,
 };
 
 export function configurePathfinding(simulation: Simulation, options: Partial<PathfindingOptions> = {}): void {
@@ -32,7 +35,9 @@ export function configurePathfinding(simulation: Simulation, options: Partial<Pa
     simulation.addObstacle(world.width * 0.28, 0, wallWidth, world.height * 0.67);
     simulation.addObstacle(world.width * 0.56, world.height * 0.33, wallWidth, world.height * 0.67);
 
-    simulation.setNavMesh(buildNavMesh(world, opts.cellSize));
+    const navMesh = buildNavMesh(world, opts.cellSize);
+    simulation.setNavMesh(navMesh);
+    simulation.setRegionGraph(buildRegionGraph(navMesh, opts.regionSize));
 
     const startX = world.width * 0.05;
     const midY = world.height / 2;

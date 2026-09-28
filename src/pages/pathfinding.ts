@@ -1,12 +1,13 @@
 import Phaser from "phaser";
-import { Simulation } from "@/simulation/Simulation";
+import { Simulation, type PathfindingAlgorithm } from "@/simulation/Simulation";
 import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
 import { AgentRenderer } from "@/rendering/AgentRenderer";
 import { PathRenderer } from "@/rendering/PathRenderer";
 import { NavMeshRenderer } from "@/rendering/NavMeshRenderer";
 import { configurePathfinding, DEFAULT_PATHFINDING_OPTIONS } from "@/experiments/PathfindingExperiment";
-import { DEFAULT_ASTAR_OPTIONS, findPath, type AStarDebugInfo } from "@/navigation/AStar";
+import { findPath } from "@/navigation/AStar";
+import { findHierarchicalPath, type HierarchicalDebugInfo } from "@/navigation/HierarchicalAStar";
 import type { Vec2 } from "@/simulation/Vec2";
 
 const WORLD_WIDTH = 900;
@@ -15,12 +16,16 @@ const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
 const OPEN_COLOR = 0x4fc3f7;
 const CLOSED_COLOR = 0x8b93a3;
+const REGION_LINE_COLOR = 0x546e7a;
+const REGION_HIGHLIGHT_COLOR = 0xffca28;
 
 class PathfindingScene extends Phaser.Scene {
     simulation!: Simulation;
     agentCount = DEFAULT_PATHFINDING_OPTIONS.agentCount;
+    algorithm: PathfindingAlgorithm = "astar";
     showGrid = true;
     showDebugSets = true;
+    showRegions = false;
     lastFindPathMs = 0;
     heroPathLength = 0;
 
@@ -29,8 +34,9 @@ class PathfindingScene extends Phaser.Scene {
     private navMeshRenderer!: NavMeshRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
     private debugGraphics!: Phaser.GameObjects.Graphics;
+    private regionGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
-    private debugInfo: AStarDebugInfo = { openSet: [], closedSet: [] };
+    private debugInfo: HierarchicalDebugInfo = { openSet: [], closedSet: [], regionPath: [] };
 
     constructor() {
         super("pathfinding");
@@ -42,8 +48,9 @@ class PathfindingScene extends Phaser.Scene {
         const world = createWorld(createTarget({ x: 0, y: 0 }), WORLD_WIDTH, WORLD_HEIGHT);
         this.simulation = new Simulation(world);
 
-        // Draw order: grid tint, obstacles, open/closed debug squares, paths, agents, target.
+        // Draw order: grid tint, regions, obstacles, open/closed debug squares, paths, agents, target.
         this.navMeshRenderer = new NavMeshRenderer(this);
+        this.regionGraphics = this.add.graphics();
         this.obstacleGraphics = this.add.graphics();
         this.debugGraphics = this.add.graphics();
         this.pathRenderer = new PathRenderer(this);
@@ -65,6 +72,7 @@ class PathfindingScene extends Phaser.Scene {
         this.simulation.update(delta);
 
         this.navMeshRenderer.render(this.showGrid ? this.simulation.navMesh : null);
+        this.drawRegions();
         this.drawObstacles();
         this.drawDebugSets();
         this.pathRenderer.render(this.simulation.world.agents);
@@ -74,21 +82,43 @@ class PathfindingScene extends Phaser.Scene {
 
     reset(): void {
         configurePathfinding(this.simulation, { agentCount: this.agentCount });
+        this.simulation.pathfindingAlgorithm = this.algorithm;
+        this.repathAll();
+    }
+
+    setAlgorithm(algorithm: PathfindingAlgorithm): void {
+        this.algorithm = algorithm;
+        this.simulation.pathfindingAlgorithm = algorithm;
+        this.repathAll();
+    }
+
+    private repathAll(): void {
+        for (const agent of this.simulation.world.agents) {
+            this.simulation.requestPath(agent);
+        }
         this.recomputeDebug();
     }
 
     private recomputeDebug(): void {
         const navMesh = this.simulation.navMesh;
+        const regionGraph = this.simulation.regionGraph;
         if (!navMesh) return;
 
         const world = this.simulation.world;
         const start: Vec2 = world.agents[0]?.position ?? { x: world.width * 0.05, y: world.height / 2 };
 
-        this.debugInfo = { openSet: [], closedSet: [] };
+        this.debugInfo = { openSet: [], closedSet: [], regionPath: [] };
         const t0 = performance.now();
-        const path = findPath(navMesh, start, world.target.position, DEFAULT_ASTAR_OPTIONS, this.debugInfo);
+        const path =
+            this.algorithm === "hierarchical" && regionGraph
+                ? findHierarchicalPath(navMesh, regionGraph, start, world.target.position, this.debugInfo)
+                : findPath(navMesh, start, world.target.position, undefined, this.debugInfo);
         this.lastFindPathMs = performance.now() - t0;
         this.heroPathLength = path.length;
+    }
+
+    regionsInLastPath(): number {
+        return this.debugInfo.regionPath.length;
     }
 
     private drawObstacles(): void {
@@ -96,6 +126,31 @@ class PathfindingScene extends Phaser.Scene {
         this.obstacleGraphics.fillStyle(OBSTACLE_COLOR, 1);
         for (const obstacle of this.simulation.world.obstacles) {
             this.obstacleGraphics.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        }
+    }
+
+    private drawRegions(): void {
+        this.regionGraphics.clear();
+        const graph = this.simulation.regionGraph;
+        const navMesh = this.simulation.navMesh;
+        if (!this.showRegions || !graph || !navMesh) return;
+
+        const regionPx = graph.regionSize * navMesh.cellSize;
+        const world = this.simulation.world;
+
+        this.regionGraphics.fillStyle(REGION_HIGHLIGHT_COLOR, 0.12);
+        for (const regionId of this.debugInfo.regionPath) {
+            const col = regionId % graph.regionCols;
+            const row = Math.floor(regionId / graph.regionCols);
+            this.regionGraphics.fillRect(col * regionPx, row * regionPx, regionPx, regionPx);
+        }
+
+        this.regionGraphics.lineStyle(1, REGION_LINE_COLOR, 0.6);
+        for (let row = 0; row <= graph.regionRows; row++) {
+            this.regionGraphics.lineBetween(0, row * regionPx, world.width, row * regionPx);
+        }
+        for (let col = 0; col <= graph.regionCols; col++) {
+            this.regionGraphics.lineBetween(col * regionPx, 0, col * regionPx, world.height);
         }
     }
 
@@ -128,8 +183,30 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     root.innerHTML = "";
 
     const heading = document.createElement("h2");
-    heading.textContent = "A* Pathfinding";
+    heading.textContent = "A* / Hierarchical A*";
     root.appendChild(heading);
+
+    const algoRow = document.createElement("div");
+    algoRow.className = "control-row";
+    const algoLabel = document.createElement("label");
+    algoLabel.textContent = "Algorithm";
+    const algoSelect = document.createElement("select");
+    for (const [value, label] of [
+        ["astar", "A*"],
+        ["hierarchical", "Hierarchical A*"],
+    ] as const) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        algoSelect.appendChild(option);
+    }
+    algoSelect.value = scene.algorithm;
+    algoSelect.addEventListener("change", () => {
+        scene.setAlgorithm(algoSelect.value as PathfindingAlgorithm);
+        regionsRow.hidden = scene.algorithm !== "hierarchical";
+    });
+    algoRow.append(algoLabel, algoSelect);
+    root.appendChild(algoRow);
 
     const gridRow = document.createElement("div");
     gridRow.className = "control-row";
@@ -141,6 +218,18 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     gridCheckbox.addEventListener("change", () => (scene.showGrid = gridCheckbox.checked));
     gridRow.append(gridLabel, gridCheckbox);
     root.appendChild(gridRow);
+
+    const regionsRow = document.createElement("div");
+    regionsRow.className = "control-row";
+    regionsRow.hidden = scene.algorithm !== "hierarchical";
+    const regionsLabel = document.createElement("label");
+    regionsLabel.textContent = "Show regions";
+    const regionsCheckbox = document.createElement("input");
+    regionsCheckbox.type = "checkbox";
+    regionsCheckbox.checked = scene.showRegions;
+    regionsCheckbox.addEventListener("change", () => (scene.showRegions = regionsCheckbox.checked));
+    regionsRow.append(regionsLabel, regionsCheckbox);
+    root.appendChild(regionsRow);
 
     const debugRow = document.createElement("div");
     debugRow.className = "control-row";
@@ -189,6 +278,7 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     const rows: Array<[string, string]> = [
         ["findPath", "findPath() time"],
         ["waypoints", "Path waypoints"],
+        ["regions", "Regions used"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -206,8 +296,9 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Клик — новая цель, путь пересчитывается. Красный тон вокруг стен — область, недоступная из-за радиуса агента ' +
-        '(NavMesh &ne; видимый пол). Синий/серый — open/closed set последнего findPath(). Часть примеров к статье. ' +
+        'Клик — новая цель. Красный тон вокруг стен — недоступная из-за радиуса агента зона (NavMesh &ne; видимый пол). ' +
+        'Синий/серый — open/closed set последнего поиска. В Hierarchical A* жёлтым подсвечены регионы грубого пути. ' +
+        'Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
@@ -217,6 +308,7 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     const tick = () => {
         cells.findPath.textContent = `${scene.lastFindPathMs.toFixed(3)} ms`;
         cells.waypoints.textContent = String(scene.heroPathLength);
+        cells.regions.textContent = scene.algorithm === "hierarchical" ? String(scene.regionsInLastPath()) : "-";
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

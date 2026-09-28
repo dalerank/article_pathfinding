@@ -5,7 +5,10 @@ import { createObstacle, type Obstacle } from "./Obstacle";
 import { distance, length, normalize, scale, sub, type Vec2 } from "./Vec2";
 import { blendVelocities, computeAvoidanceVelocity } from "@/avoidance/LocalAvoidance";
 import { findPath } from "@/navigation/AStar";
+import { findHierarchicalPath, type RegionGraph } from "@/navigation/HierarchicalAStar";
 import type { NavMesh } from "@/navigation/NavMesh";
+
+export type PathfindingAlgorithm = "astar" | "hierarchical";
 
 /**
  * Fixed timestep, see spec section 18 (Simulation Loop).
@@ -34,6 +37,8 @@ export interface SimulationMetrics {
 export class Simulation {
     readonly world: World;
     navMesh: NavMesh | null = null;
+    regionGraph: RegionGraph | null = null;
+    pathfindingAlgorithm: PathfindingAlgorithm = "astar";
     private accumulator = 0;
     private paused = false;
     private elapsedSeconds = 0;
@@ -102,7 +107,11 @@ export class Simulation {
         this.navMesh = navMesh;
     }
 
-    /** Synchronously computes Agent.path via A*. No request queue/budget yet (spec section 13's separate experiment). */
+    setRegionGraph(regionGraph: RegionGraph | null): void {
+        this.regionGraph = regionGraph;
+    }
+
+    /** Synchronously computes Agent.path. No request queue/budget yet (spec section 13's separate experiment). */
     requestPath(agent: Agent): void {
         if (!this.navMesh || !agent.destination) {
             agent.path = [];
@@ -110,7 +119,10 @@ export class Simulation {
             return;
         }
         const start = performance.now();
-        agent.path = findPath(this.navMesh, agent.position, agent.destination);
+        agent.path =
+            this.pathfindingAlgorithm === "hierarchical" && this.regionGraph
+                ? findHierarchicalPath(this.navMesh, this.regionGraph, agent.position, agent.destination)
+                : findPath(this.navMesh, agent.position, agent.destination);
         agent.pathIndex = 0;
         this.pathfindingTimeAccumulator += performance.now() - start;
     }
