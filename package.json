@@ -1,0 +1,20 @@
+{
+  "name": "navmesh-sandbox",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Interactive NavMesh / pathfinding / crowd sandbox accompanying the article \"Почему 200 солдат не проходят в одни ворота\"",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2"
+  }
+}
