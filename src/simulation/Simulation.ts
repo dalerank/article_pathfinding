@@ -43,11 +43,16 @@ export class Simulation {
     regionGraph: RegionGraph | null = null;
     flowField: FlowField | null = null;
     pathfindingAlgorithm: PathfindingAlgorithm = "astar";
+    /** Spec section 13 "Path Request Budget": max entries processPathRequestQueue() drains per update(). Infinity = unbounded. */
+    maxPathRequestsPerFrame = Infinity;
+    /** How many queued requests processPathRequestQueue() actually processed on the last update() call. */
+    lastFrameRequestsProcessed = 0;
     private accumulator = 0;
     private paused = false;
     private elapsedSeconds = 0;
     private avoidanceTimeAccumulator = 0;
     private pathfindingTimeAccumulator = 0;
+    private pathRequestQueue: Agent[] = [];
     private lastMetrics: SimulationMetrics = {
         frameTime: 0,
         simulationTime: 0,
@@ -120,7 +125,32 @@ export class Simulation {
         this.regionGraph = regionGraph;
     }
 
-    /** Synchronously computes Agent.path. No request queue/budget yet (spec section 13's separate experiment). */
+    /**
+     * Queues a path request instead of computing it immediately — processPathRequestQueue()
+     * (called once per update()) drains up to maxPathRequestsPerFrame of these. Lets a page
+     * simulate many agents "waking up" at once without freezing the frame (spec section 13).
+     */
+    enqueuePathRequest(agent: Agent): void {
+        if (!this.pathRequestQueue.includes(agent)) {
+            this.pathRequestQueue.push(agent);
+        }
+    }
+
+    get pendingPathRequests(): number {
+        return this.pathRequestQueue.length;
+    }
+
+    private processPathRequestQueue(): void {
+        let processed = 0;
+        while (this.pathRequestQueue.length > 0 && processed < this.maxPathRequestsPerFrame) {
+            const agent = this.pathRequestQueue.shift()!;
+            this.requestPath(agent);
+            processed++;
+        }
+        this.lastFrameRequestsProcessed = processed;
+    }
+
+    /** Synchronously computes Agent.path right now. Bypasses the queue/budget above. */
     requestPath(agent: Agent): void {
         if (!this.navMesh || !agent.destination) {
             agent.path = [];
@@ -154,6 +184,8 @@ export class Simulation {
             this.lastMetrics.frameTime = performance.now() - frameStart;
             return;
         }
+
+        this.processPathRequestQueue();
 
         this.accumulator += deltaMs / 1000;
         const simStart = performance.now();

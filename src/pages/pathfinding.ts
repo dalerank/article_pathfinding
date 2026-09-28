@@ -342,7 +342,8 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
         '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
-        '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a>';
+        '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +
+        '<a href="path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a>';
     root.appendChild(hint);
 
     const tick = () => {

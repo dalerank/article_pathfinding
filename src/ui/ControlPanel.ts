@@ -80,7 +80,8 @@ export class ControlPanel {
             '<a href="examples/pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
             '<a href="examples/flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
             '<a href="examples/dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
-            '<a href="examples/link-cost.html" style="color:#4fc3f7">Link Cost Override</a>';
+            '<a href="examples/link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +
+            '<a href="examples/path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a>';
         root.appendChild(examplesHint);
     }
 

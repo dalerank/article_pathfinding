@@ -22,6 +22,7 @@ export default defineConfig({
                 flowField: path.resolve(__dirname, "examples/flow-field.html"),
                 dynamicObstacles: path.resolve(__dirname, "examples/dynamic-obstacles.html"),
                 linkCost: path.resolve(__dirname, "examples/link-cost.html"),
+                pathRequestBudget: path.resolve(__dirname, "examples/path-request-budget.html"),
             },
         },
     },
