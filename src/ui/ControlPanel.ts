@@ -69,6 +69,11 @@ export class ControlPanel {
         hint.style.color = "#8b93a3";
         hint.textContent = "Left click: set target · Shift+Left click: add agent · Right click: add obstacle";
         root.appendChild(hint);
+
+        const examplesHint = document.createElement("p");
+        examplesHint.style.color = "#8b93a3";
+        examplesHint.innerHTML = 'Примеры к статье: <a href="examples/narrow-gate.html" style="color:#4fc3f7">Narrow Gate &rarr;</a>';
+        root.appendChild(examplesHint);
     }
 
     private buildRow(labelText: string, build: (row: HTMLElement) => void): HTMLElement {

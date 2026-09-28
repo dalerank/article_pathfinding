@@ -13,10 +13,10 @@ export interface World {
     target: Target;
 }
 
-export function createWorld(target: Target): World {
+export function createWorld(target: Target, width = WORLD_WIDTH, height = WORLD_HEIGHT): World {
     return {
-        width: WORLD_WIDTH,
-        height: WORLD_HEIGHT,
+        width,
+        height,
         obstacles: [],
         agents: [],
         target,

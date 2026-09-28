@@ -1,9 +1,13 @@
 // Phase 4 (spec section 11): blends desired velocity (from global navigation)
 // with an avoidance vector computed from nearby agents.
 // finalVelocity = desiredVelocity * desiredWeight + avoidanceVelocity * avoidanceWeight
+//
+// This is a minimal steering-based separation, not RVO/ORCA (spec section 22):
+// each neighbor within range pushes the agent away, proportional to how much
+// personal space is violated. Readable > accurate, per spec section 24.
 
 import type { Agent } from "@/simulation/Agent";
-import type { Vec2 } from "@/simulation/Vec2";
+import { distance, length, normalize, scale, sub, type Vec2 } from "@/simulation/Vec2";
 
 export interface AvoidanceWeights {
     desiredWeight: number;
@@ -15,6 +19,35 @@ export const DEFAULT_AVOIDANCE_WEIGHTS: AvoidanceWeights = {
     avoidanceWeight: 0.3,
 };
 
-export function computeAvoidanceVelocity(_agent: Agent, _neighbors: Agent[]): Vec2 {
-    throw new Error("LocalAvoidance.computeAvoidanceVelocity: not implemented yet (Phase 4)");
+/** Neighbors start to matter within this many multiples of the two agents' combined radius. */
+const NEIGHBOR_RANGE_FACTOR = 4;
+
+export function computeAvoidanceVelocity(agent: Agent, allAgents: Agent[]): Vec2 {
+    let push: Vec2 = { x: 0, y: 0 };
+
+    for (const other of allAgents) {
+        if (other === agent) continue;
+
+        const range = (agent.radius + other.radius) * NEIGHBOR_RANGE_FACTOR;
+        const dist = distance(agent.position, other.position);
+        if (dist >= range || dist <= 0) continue;
+
+        const away = normalize(sub(agent.position, other.position));
+        const overlap = (range - dist) / range;
+        push = { x: push.x + away.x * overlap, y: push.y + away.y * overlap };
+    }
+
+    if (length(push) === 0) return push;
+    return scale(normalize(push), agent.maxSpeed);
+}
+
+export function blendVelocities(
+    desired: Vec2,
+    avoidance: Vec2,
+    weights: AvoidanceWeights = DEFAULT_AVOIDANCE_WEIGHTS,
+): Vec2 {
+    return {
+        x: desired.x * weights.desiredWeight + avoidance.x * weights.avoidanceWeight,
+        y: desired.y * weights.desiredWeight + avoidance.y * weights.avoidanceWeight,
+    };
 }
