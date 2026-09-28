@@ -1,5 +1,5 @@
 // Spec section 13 "Path Request Budget" + "Repath Jitter", article section
-// "Количество запросов": a budget on how many path requests get processed
+// "Number of requests": a budget on how many path requests get processed
 // per frame, and a per-agent repath interval + jitter so agents spawned at
 // the same time don't all wake up and re-request on the same frame.
 

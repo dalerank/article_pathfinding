@@ -1,4 +1,4 @@
-// Article section "Ещё один способ заставить A* не искать" (OffMeshLink costOverride):
+// Article section "Another way to make A* not search" (OffMeshLink costOverride):
 // a short link and a longer, wider detour. At cost 1.0 almost everyone prefers the cheap
 // link and jams it; raising costOverride redistributes agents onto the detour — not because
 // the algorithm changed, but because the model of the world now says the link is expensive.

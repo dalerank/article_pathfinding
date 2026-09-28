@@ -107,7 +107,7 @@ class PathfindingScene extends Phaser.Scene {
     }
 
     /**
-     * Article section "Иногда агент застрял ещё до того, как начал идти": a click outside the
+     * Article section "Sometimes the agent got stuck before it even started moving": a click outside the
      * NavMesh doesn't just silently fail like SetDestination — it snaps to the nearest walkable
      * point within SNAP_RADIUS (NavMesh.SamplePosition), or leaves the target untouched if nothing
      * walkable is close enough.
