@@ -19,6 +19,8 @@ class FlowFieldScene extends Phaser.Scene {
     simulation!: Simulation;
     agentCount = DEFAULT_FLOW_FIELD_OPTIONS.agentCount;
     algorithm: PathfindingAlgorithm = DEFAULT_FLOW_FIELD_OPTIONS.algorithm;
+    pillar1Size = DEFAULT_FLOW_FIELD_OPTIONS.pillar1Size;
+    pillar2Size = DEFAULT_FLOW_FIELD_OPTIONS.pillar2Size;
     showField = true;
     showGrid = false;
     lastBenchmarkMs = 0;
@@ -72,7 +74,12 @@ class FlowFieldScene extends Phaser.Scene {
     }
 
     reset(): void {
-        configureFlowField(this.simulation, { agentCount: this.agentCount, algorithm: this.algorithm });
+        configureFlowField(this.simulation, {
+            agentCount: this.agentCount,
+            algorithm: this.algorithm,
+            pillar1Size: this.pillar1Size,
+            pillar2Size: this.pillar2Size,
+        });
         this.recomputeBenchmark();
     }
 
@@ -166,6 +173,46 @@ function buildControls(root: HTMLElement, scene: FlowFieldScene): void {
     gridCheckbox.addEventListener("change", () => (scene.showGrid = gridCheckbox.checked));
     gridRow.append(gridLabel, gridCheckbox);
     root.appendChild(gridRow);
+
+    const pillar1Row = document.createElement("div");
+    pillar1Row.className = "control-row";
+    const pillar1Label = document.createElement("label");
+    pillar1Label.textContent = "Pillar 1 size";
+    const pillar1Input = document.createElement("input");
+    pillar1Input.type = "range";
+    pillar1Input.min = "10";
+    pillar1Input.max = "300";
+    pillar1Input.step = "10";
+    pillar1Input.value = String(scene.pillar1Size);
+    const pillar1Value = document.createElement("span");
+    pillar1Value.textContent = `${pillar1Input.value} px`;
+    pillar1Input.addEventListener("input", () => {
+        scene.pillar1Size = Number(pillar1Input.value);
+        pillar1Value.textContent = `${pillar1Input.value} px`;
+        scene.reset();
+    });
+    pillar1Row.append(pillar1Label, pillar1Input, pillar1Value);
+    root.appendChild(pillar1Row);
+
+    const pillar2Row = document.createElement("div");
+    pillar2Row.className = "control-row";
+    const pillar2Label = document.createElement("label");
+    pillar2Label.textContent = "Pillar 2 size";
+    const pillar2Input = document.createElement("input");
+    pillar2Input.type = "range";
+    pillar2Input.min = "10";
+    pillar2Input.max = "300";
+    pillar2Input.step = "10";
+    pillar2Input.value = String(scene.pillar2Size);
+    const pillar2Value = document.createElement("span");
+    pillar2Value.textContent = `${pillar2Input.value} px`;
+    pillar2Input.addEventListener("input", () => {
+        scene.pillar2Size = Number(pillar2Input.value);
+        pillar2Value.textContent = `${pillar2Input.value} px`;
+        scene.reset();
+    });
+    pillar2Row.append(pillar2Label, pillar2Input, pillar2Value);
+    root.appendChild(pillar2Row);
 
     const agentsRow = document.createElement("div");
     agentsRow.className = "control-row";

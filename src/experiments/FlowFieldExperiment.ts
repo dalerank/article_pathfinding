@@ -10,15 +10,20 @@ export interface FlowFieldOptions {
     cellSize: number;
     /** Only "astar" and "flow-field" are meaningful here; "hierarchical" behaves like "astar" for this experiment. */
     algorithm: PathfindingAlgorithm;
+    /** Side length of each square pillar — independently sized. */
+    pillar1Size: number;
+    pillar2Size: number;
 }
 
 export const DEFAULT_FLOW_FIELD_OPTIONS: FlowFieldOptions = {
     agentCount: 200,
     cellSize: 20,
     algorithm: "flow-field",
+    pillar1Size: 80,
+    pillar2Size: 80,
 };
 
-/** Two free-standing pillars so the field visibly bends around them instead of a single straight corridor. */
+/** Two free-standing square pillars, each independently sized, so the field visibly bends around them instead of a single straight corridor. */
 export function configureFlowField(simulation: Simulation, options: Partial<FlowFieldOptions> = {}): void {
     const opts = { ...DEFAULT_FLOW_FIELD_OPTIONS, ...options };
     simulation.pathfindingAlgorithm = opts.algorithm;
@@ -28,9 +33,22 @@ export function configureFlowField(simulation: Simulation, options: Partial<Flow
     world.obstacles.length = 0;
     simulation.resetClock();
 
-    const pillarWidth = 50;
-    simulation.addObstacle(world.width * 0.45, world.height * 0.15, pillarWidth, world.height * 0.25);
-    simulation.addObstacle(world.width * 0.45, world.height * 0.6, pillarWidth, world.height * 0.25);
+    const pillarCenterX = world.width * 0.5;
+    const pillar1CenterY = world.height * 0.28;
+    const pillar2CenterY = world.height * 0.72;
+
+    simulation.addObstacle(
+        pillarCenterX - opts.pillar1Size / 2,
+        pillar1CenterY - opts.pillar1Size / 2,
+        opts.pillar1Size,
+        opts.pillar1Size,
+    );
+    simulation.addObstacle(
+        pillarCenterX - opts.pillar2Size / 2,
+        pillar2CenterY - opts.pillar2Size / 2,
+        opts.pillar2Size,
+        opts.pillar2Size,
+    );
 
     const navMesh = buildNavMesh(world, opts.cellSize);
     simulation.setNavMesh(navMesh);
