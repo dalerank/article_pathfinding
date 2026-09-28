@@ -77,7 +77,8 @@ export class ControlPanel {
             '<a href="examples/narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
             '<a href="examples/avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
             '<a href="examples/local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
-            '<a href="examples/pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a>';
+            '<a href="examples/pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
+            '<a href="examples/flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a>';
         root.appendChild(examplesHint);
     }
 

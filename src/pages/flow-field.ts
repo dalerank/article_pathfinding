@@ -5,41 +5,35 @@ import { createTarget } from "@/simulation/Target";
 import { AgentRenderer } from "@/rendering/AgentRenderer";
 import { PathRenderer } from "@/rendering/PathRenderer";
 import { NavMeshRenderer } from "@/rendering/NavMeshRenderer";
-import { configurePathfinding, DEFAULT_PATHFINDING_OPTIONS } from "@/experiments/PathfindingExperiment";
+import { FlowFieldRenderer } from "@/rendering/FlowFieldRenderer";
+import { configureFlowField, DEFAULT_FLOW_FIELD_OPTIONS } from "@/experiments/FlowFieldExperiment";
+import { buildFlowField } from "@/navigation/FlowField";
 import { findPath } from "@/navigation/AStar";
-import { findHierarchicalPath, type HierarchicalDebugInfo } from "@/navigation/HierarchicalAStar";
-import type { Vec2 } from "@/simulation/Vec2";
 
 const WORLD_WIDTH = 900;
 const WORLD_HEIGHT = 600;
 const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
-const OPEN_COLOR = 0x4fc3f7;
-const CLOSED_COLOR = 0x8b93a3;
-const REGION_LINE_COLOR = 0x546e7a;
-const REGION_HIGHLIGHT_COLOR = 0xffca28;
 
-class PathfindingScene extends Phaser.Scene {
+class FlowFieldScene extends Phaser.Scene {
     simulation!: Simulation;
-    agentCount = DEFAULT_PATHFINDING_OPTIONS.agentCount;
-    algorithm: PathfindingAlgorithm = "astar";
-    showGrid = true;
-    showDebugSets = true;
-    showRegions = false;
-    lastFindPathMs = 0;
-    heroPathLength = 0;
+    agentCount = DEFAULT_FLOW_FIELD_OPTIONS.agentCount;
+    algorithm: PathfindingAlgorithm = DEFAULT_FLOW_FIELD_OPTIONS.algorithm;
+    showField = true;
+    showGrid = false;
+    lastBenchmarkMs = 0;
+    benchmarkLabel = "";
+    fieldRebuilds = 0;
 
     private agentRenderer!: AgentRenderer;
     private pathRenderer!: PathRenderer;
     private navMeshRenderer!: NavMeshRenderer;
+    private flowFieldRenderer!: FlowFieldRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
-    private debugGraphics!: Phaser.GameObjects.Graphics;
-    private regionGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
-    private debugInfo: HierarchicalDebugInfo = { openSet: [], closedSet: [], regionPath: [] };
 
     constructor() {
-        super("pathfinding");
+        super("flow-field");
     }
 
     create(): void {
@@ -48,11 +42,9 @@ class PathfindingScene extends Phaser.Scene {
         const world = createWorld(createTarget({ x: 0, y: 0 }), WORLD_WIDTH, WORLD_HEIGHT);
         this.simulation = new Simulation(world);
 
-        // Draw order: grid tint, regions, obstacles, open/closed debug squares, paths, agents, target.
         this.navMeshRenderer = new NavMeshRenderer(this);
-        this.regionGraphics = this.add.graphics();
         this.obstacleGraphics = this.add.graphics();
-        this.debugGraphics = this.add.graphics();
+        this.flowFieldRenderer = new FlowFieldRenderer(this);
         this.pathRenderer = new PathRenderer(this);
         this.agentRenderer = new AgentRenderer(this);
         this.targetGraphics = this.add.graphics();
@@ -61,7 +53,7 @@ class PathfindingScene extends Phaser.Scene {
 
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
             this.simulation.setTarget({ x: pointer.worldX, y: pointer.worldY });
-            this.recomputeDebug();
+            this.recomputeBenchmark();
         });
 
         this.input.keyboard?.on("keydown-SPACE", () => this.simulation.togglePaused());
@@ -72,53 +64,43 @@ class PathfindingScene extends Phaser.Scene {
         this.simulation.update(delta);
 
         this.navMeshRenderer.render(this.showGrid ? this.simulation.navMesh : null);
-        this.drawRegions();
         this.drawObstacles();
-        this.drawDebugSets();
+        this.flowFieldRenderer.render(this.showField ? this.simulation.flowField : null);
         this.pathRenderer.render(this.simulation.world.agents);
         this.agentRenderer.render(this.simulation.world.agents);
         this.drawTarget();
     }
 
     reset(): void {
-        configurePathfinding(this.simulation, { agentCount: this.agentCount });
-        this.simulation.pathfindingAlgorithm = this.algorithm;
-        this.repathAll();
+        configureFlowField(this.simulation, { agentCount: this.agentCount, algorithm: this.algorithm });
+        this.recomputeBenchmark();
     }
 
     setAlgorithm(algorithm: PathfindingAlgorithm): void {
         this.algorithm = algorithm;
-        this.simulation.pathfindingAlgorithm = algorithm;
-        this.repathAll();
+        this.reset();
     }
 
-    private repathAll(): void {
-        for (const agent of this.simulation.world.agents) {
-            this.simulation.requestPath(agent);
-        }
-        this.recomputeDebug();
-    }
-
-    private recomputeDebug(): void {
+    /** Independent timing probe: what would it cost to path every agent right now, with the current algorithm. */
+    private recomputeBenchmark(): void {
         const navMesh = this.simulation.navMesh;
-        const regionGraph = this.simulation.regionGraph;
+        const world = this.simulation.world;
         if (!navMesh) return;
 
-        const world = this.simulation.world;
-        const start: Vec2 = world.agents[0]?.position ?? { x: world.width * 0.05, y: world.height / 2 };
-
-        this.debugInfo = { openSet: [], closedSet: [], regionPath: [] };
-        const t0 = performance.now();
-        const path =
-            this.algorithm === "hierarchical" && regionGraph
-                ? findHierarchicalPath(navMesh, regionGraph, start, world.target.position, this.debugInfo)
-                : findPath(navMesh, start, world.target.position, undefined, this.debugInfo);
-        this.lastFindPathMs = performance.now() - t0;
-        this.heroPathLength = path.length;
-    }
-
-    regionsInLastPath(): number {
-        return this.debugInfo.regionPath.length;
+        if (this.algorithm === "flow-field") {
+            const t0 = performance.now();
+            buildFlowField(navMesh, world.target.position);
+            this.lastBenchmarkMs = performance.now() - t0;
+            this.benchmarkLabel = "buildFlowField() once";
+            this.fieldRebuilds++;
+        } else {
+            const t0 = performance.now();
+            for (const agent of world.agents) {
+                findPath(navMesh, agent.position, world.target.position);
+            }
+            this.lastBenchmarkMs = performance.now() - t0;
+            this.benchmarkLabel = `findPath() x ${world.agents.length}`;
+        }
     }
 
     private drawObstacles(): void {
@@ -126,48 +108,6 @@ class PathfindingScene extends Phaser.Scene {
         this.obstacleGraphics.fillStyle(OBSTACLE_COLOR, 1);
         for (const obstacle of this.simulation.world.obstacles) {
             this.obstacleGraphics.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-        }
-    }
-
-    private drawRegions(): void {
-        this.regionGraphics.clear();
-        const graph = this.simulation.regionGraph;
-        const navMesh = this.simulation.navMesh;
-        if (!this.showRegions || !graph || !navMesh) return;
-
-        const regionPx = graph.regionSize * navMesh.cellSize;
-        const world = this.simulation.world;
-
-        this.regionGraphics.fillStyle(REGION_HIGHLIGHT_COLOR, 0.12);
-        for (const regionId of this.debugInfo.regionPath) {
-            const col = regionId % graph.regionCols;
-            const row = Math.floor(regionId / graph.regionCols);
-            this.regionGraphics.fillRect(col * regionPx, row * regionPx, regionPx, regionPx);
-        }
-
-        this.regionGraphics.lineStyle(1, REGION_LINE_COLOR, 0.6);
-        for (let row = 0; row <= graph.regionRows; row++) {
-            this.regionGraphics.lineBetween(0, row * regionPx, world.width, row * regionPx);
-        }
-        for (let col = 0; col <= graph.regionCols; col++) {
-            this.regionGraphics.lineBetween(col * regionPx, 0, col * regionPx, world.height);
-        }
-    }
-
-    private drawDebugSets(): void {
-        this.debugGraphics.clear();
-        if (!this.showDebugSets) return;
-
-        const half = (this.simulation.navMesh?.cellSize ?? 20) * 0.35;
-
-        this.debugGraphics.fillStyle(CLOSED_COLOR, 0.35);
-        for (const p of this.debugInfo.closedSet) {
-            this.debugGraphics.fillRect(p.x - half, p.y - half, half * 2, half * 2);
-        }
-
-        this.debugGraphics.fillStyle(OPEN_COLOR, 0.3);
-        for (const p of this.debugInfo.openSet) {
-            this.debugGraphics.fillRect(p.x - half, p.y - half, half * 2, half * 2);
         }
     }
 
@@ -179,11 +119,11 @@ class PathfindingScene extends Phaser.Scene {
     }
 }
 
-function buildControls(root: HTMLElement, scene: PathfindingScene): void {
+function buildControls(root: HTMLElement, scene: FlowFieldScene): void {
     root.innerHTML = "";
 
     const heading = document.createElement("h2");
-    heading.textContent = "A* / Hierarchical A*";
+    heading.textContent = "A* vs Flow Field";
     root.appendChild(heading);
 
     const algoRow = document.createElement("div");
@@ -192,8 +132,8 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     algoLabel.textContent = "Algorithm";
     const algoSelect = document.createElement("select");
     for (const [value, label] of [
-        ["astar", "A*"],
-        ["hierarchical", "Hierarchical A*"],
+        ["flow-field", "Flow Field"],
+        ["astar", "A* (per agent)"],
     ] as const) {
         const option = document.createElement("option");
         option.value = value;
@@ -201,12 +141,20 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
         algoSelect.appendChild(option);
     }
     algoSelect.value = scene.algorithm;
-    algoSelect.addEventListener("change", () => {
-        scene.setAlgorithm(algoSelect.value as PathfindingAlgorithm);
-        regionsRow.hidden = scene.algorithm !== "hierarchical";
-    });
+    algoSelect.addEventListener("change", () => scene.setAlgorithm(algoSelect.value as PathfindingAlgorithm));
     algoRow.append(algoLabel, algoSelect);
     root.appendChild(algoRow);
+
+    const fieldRow = document.createElement("div");
+    fieldRow.className = "control-row";
+    const fieldLabel = document.createElement("label");
+    fieldLabel.textContent = "Show field";
+    const fieldCheckbox = document.createElement("input");
+    fieldCheckbox.type = "checkbox";
+    fieldCheckbox.checked = scene.showField;
+    fieldCheckbox.addEventListener("change", () => (scene.showField = fieldCheckbox.checked));
+    fieldRow.append(fieldLabel, fieldCheckbox);
+    root.appendChild(fieldRow);
 
     const gridRow = document.createElement("div");
     gridRow.className = "control-row";
@@ -219,38 +167,15 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     gridRow.append(gridLabel, gridCheckbox);
     root.appendChild(gridRow);
 
-    const regionsRow = document.createElement("div");
-    regionsRow.className = "control-row";
-    regionsRow.hidden = scene.algorithm !== "hierarchical";
-    const regionsLabel = document.createElement("label");
-    regionsLabel.textContent = "Show regions";
-    const regionsCheckbox = document.createElement("input");
-    regionsCheckbox.type = "checkbox";
-    regionsCheckbox.checked = scene.showRegions;
-    regionsCheckbox.addEventListener("change", () => (scene.showRegions = regionsCheckbox.checked));
-    regionsRow.append(regionsLabel, regionsCheckbox);
-    root.appendChild(regionsRow);
-
-    const debugRow = document.createElement("div");
-    debugRow.className = "control-row";
-    const debugLabel = document.createElement("label");
-    debugLabel.textContent = "Open / closed set";
-    const debugCheckbox = document.createElement("input");
-    debugCheckbox.type = "checkbox";
-    debugCheckbox.checked = scene.showDebugSets;
-    debugCheckbox.addEventListener("change", () => (scene.showDebugSets = debugCheckbox.checked));
-    debugRow.append(debugLabel, debugCheckbox);
-    root.appendChild(debugRow);
-
     const agentsRow = document.createElement("div");
     agentsRow.className = "control-row";
     const agentsLabel = document.createElement("label");
     agentsLabel.textContent = "Agents";
     const agentsInput = document.createElement("input");
     agentsInput.type = "range";
-    agentsInput.min = "2";
-    agentsInput.max = "40";
-    agentsInput.step = "2";
+    agentsInput.min = "20";
+    agentsInput.max = "400";
+    agentsInput.step = "20";
     agentsInput.value = String(scene.agentCount);
     const agentsValue = document.createElement("span");
     agentsValue.textContent = agentsInput.value;
@@ -276,9 +201,8 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     const table = document.createElement("table");
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
-        ["findPath", "findPath() time"],
-        ["waypoints", "Path waypoints"],
-        ["regions", "Regions used"],
+        ["benchmark", "Benchmark"],
+        ["rebuilds", "Field rebuilds"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -296,20 +220,18 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Клик — новая цель. Красный тон вокруг стен — недоступная из-за радиуса агента зона (NavMesh &ne; видимый пол). ' +
-        'Синий/серый — open/closed set последнего поиска. В Hierarchical A* жёлтым подсвечены регионы грубого пути. ' +
-        'Часть примеров к статье. ' +
+        'Клик — новая цель. Flow Field: одно общее поле направлений читают все агенты сразу. A*: каждый агент ищет ' +
+        'свой путь отдельно — сравни Benchmark при 200+ агентах. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
-        '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a>';
+        '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a>';
     root.appendChild(hint);
 
     const tick = () => {
-        cells.findPath.textContent = `${scene.lastFindPathMs.toFixed(3)} ms`;
-        cells.waypoints.textContent = String(scene.heroPathLength);
-        cells.regions.textContent = scene.algorithm === "hierarchical" ? String(scene.regionsInLastPath()) : "-";
+        cells.benchmark.textContent = `${scene.benchmarkLabel}: ${scene.lastBenchmarkMs.toFixed(2)} ms`;
+        cells.rebuilds.textContent = String(scene.fieldRebuilds);
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -319,10 +241,10 @@ const gameRoot = document.getElementById("game-root");
 const controlRoot = document.getElementById("control-panel");
 
 if (!gameRoot || !controlRoot) {
-    throw new Error("pathfinding: expected #game-root and #control-panel in examples/pathfinding.html");
+    throw new Error("flow-field: expected #game-root and #control-panel in examples/flow-field.html");
 }
 
-const scene = new PathfindingScene();
+const scene = new FlowFieldScene();
 const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: gameRoot,

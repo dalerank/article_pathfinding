@@ -6,17 +6,20 @@ import { distance, length, normalize, scale, sub, type Vec2 } from "./Vec2";
 import { blendVelocities, computeAvoidanceVelocity } from "@/avoidance/LocalAvoidance";
 import { findPath } from "@/navigation/AStar";
 import { findHierarchicalPath, type RegionGraph } from "@/navigation/HierarchicalAStar";
+import { buildFlowField, sampleDirection, type FlowField } from "@/navigation/FlowField";
 import type { NavMesh } from "@/navigation/NavMesh";
 
-export type PathfindingAlgorithm = "astar" | "hierarchical";
+export type PathfindingAlgorithm = "astar" | "hierarchical" | "flow-field";
 
 /**
  * Fixed timestep, see spec section 18 (Simulation Loop).
  * With no NavMesh set, agents seek their destination directly (Phase 1
- * behavior) — Hierarchical A* and Flow Field (Phase 3/5) are still stubs.
- * With a NavMesh set (`setNavMesh`), agents follow the A*-computed
- * Agent.path waypoint by waypoint instead. Either way the seek velocity is
- * blended with local avoidance (section 11) and clamped against obstacles.
+ * behavior). With a NavMesh set (`setNavMesh`), agents follow a computed
+ * Agent.path waypoint by waypoint (A* or Hierarchical A*, section 8/9) —
+ * except in "flow-field" mode, where every agent instead samples one shared
+ * direction field each tick (section 10) and Agent.path stays empty. Either
+ * way the seek velocity is blended with local avoidance (section 11) and
+ * clamped against obstacles.
  */
 export const SIMULATION_HZ = 60;
 export const FIXED_DT = 1 / SIMULATION_HZ;
@@ -38,6 +41,7 @@ export class Simulation {
     readonly world: World;
     navMesh: NavMesh | null = null;
     regionGraph: RegionGraph | null = null;
+    flowField: FlowField | null = null;
     pathfindingAlgorithm: PathfindingAlgorithm = "astar";
     private accumulator = 0;
     private paused = false;
@@ -85,7 +89,7 @@ export class Simulation {
             ...overrides,
         });
         this.world.agents.push(agent);
-        if (this.navMesh) this.requestPath(agent);
+        if (this.navMesh && this.pathfindingAlgorithm !== "flow-field") this.requestPath(agent);
         return agent;
     }
 
@@ -99,7 +103,12 @@ export class Simulation {
         this.world.target.position = { ...position };
         for (const agent of this.world.agents) {
             agent.destination = { ...position };
-            if (this.navMesh) this.requestPath(agent);
+        }
+
+        if (this.pathfindingAlgorithm === "flow-field") {
+            this.rebuildFlowField();
+        } else if (this.navMesh) {
+            for (const agent of this.world.agents) this.requestPath(agent);
         }
     }
 
@@ -124,6 +133,17 @@ export class Simulation {
                 ? findHierarchicalPath(this.navMesh, this.regionGraph, agent.position, agent.destination)
                 : findPath(this.navMesh, agent.position, agent.destination);
         agent.pathIndex = 0;
+        this.pathfindingTimeAccumulator += performance.now() - start;
+    }
+
+    /** Rebuilds the shared direction field once for the current target — every agent reads it, no per-agent search. */
+    rebuildFlowField(): void {
+        if (!this.navMesh) {
+            this.flowField = null;
+            return;
+        }
+        const start = performance.now();
+        this.flowField = buildFlowField(this.navMesh, this.world.target.position);
         this.pathfindingTimeAccumulator += performance.now() - start;
     }
 
@@ -170,25 +190,18 @@ export class Simulation {
         return this.lastMetrics;
     }
 
-    /** One fixed-timestep tick: seek (waypoint or direct) + local avoidance + obstacle collision. */
+    /** One fixed-timestep tick: seek (flow field, waypoint, or direct) + local avoidance + obstacle collision. */
     private step(dt: number): void {
         for (const agent of this.world.agents) {
             if (!agent.destination) continue;
 
-            if (agent.path.length > 0 && agent.pathIndex < agent.path.length - 1) {
-                if (distance(agent.position, agent.path[agent.pathIndex]) < WAYPOINT_ARRIVE_RADIUS) {
-                    agent.pathIndex++;
-                }
-            }
-            const seekTarget = agent.path.length > 0 ? agent.path[agent.pathIndex] : agent.destination;
-
-            const dist = distance(agent.position, seekTarget);
+            const dist = distance(agent.position, agent.destination);
             if (dist < 1) {
                 agent.velocity = { x: 0, y: 0 };
                 continue;
             }
 
-            const desired = scale(normalize(sub(seekTarget, agent.position)), agent.maxSpeed);
+            const desired = this.seekVelocity(agent);
 
             let candidate = desired;
             if (agent.avoidanceEnabled) {
@@ -218,6 +231,26 @@ export class Simulation {
 
             agent.position = next;
         }
+    }
+
+    /** Desired velocity before avoidance: flow field sample, next path waypoint, or a direct line to the destination. */
+    private seekVelocity(agent: Agent): Vec2 {
+        const destination = agent.destination!;
+
+        if (this.pathfindingAlgorithm === "flow-field" && this.flowField) {
+            const fieldDir = sampleDirection(this.flowField, agent.position);
+            if (length(fieldDir) > 0) return scale(fieldDir, agent.maxSpeed);
+            // Target cell (zero vector by construction) or an unreachable one: finish the approach directly.
+        } else if (agent.path.length > 0) {
+            if (agent.pathIndex < agent.path.length - 1) {
+                if (distance(agent.position, agent.path[agent.pathIndex]) < WAYPOINT_ARRIVE_RADIUS) {
+                    agent.pathIndex++;
+                }
+            }
+            return scale(normalize(sub(agent.path[agent.pathIndex], agent.position)), agent.maxSpeed);
+        }
+
+        return scale(normalize(sub(destination, agent.position)), agent.maxSpeed);
     }
 }
 
