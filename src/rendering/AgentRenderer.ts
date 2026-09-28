@@ -13,12 +13,14 @@ export class AgentRenderer {
         this.graphics = scene.add.graphics();
     }
 
-    render(agents: Agent[]): void {
+    /** `colorFor`, when given, overrides the fill color for non-selected agents (e.g. by avoidancePriority). */
+    render(agents: Agent[], colorFor?: (agent: Agent) => number): void {
         this.graphics.clear();
 
         for (const agent of agents) {
             const isSelected = agent.id === this.selectedAgentId;
-            this.graphics.fillStyle(isSelected ? SELECTED_COLOR : FILL_COLOR, 1);
+            const color = isSelected ? SELECTED_COLOR : (colorFor?.(agent) ?? FILL_COLOR);
+            this.graphics.fillStyle(color, 1);
             this.graphics.fillCircle(agent.position.x, agent.position.y, agent.radius);
 
             if (agent.velocity.x !== 0 || agent.velocity.y !== 0) {

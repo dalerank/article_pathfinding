@@ -72,7 +72,10 @@ export class ControlPanel {
 
         const examplesHint = document.createElement("p");
         examplesHint.style.color = "#8b93a3";
-        examplesHint.innerHTML = 'Примеры к статье: <a href="examples/narrow-gate.html" style="color:#4fc3f7">Narrow Gate &rarr;</a>';
+        examplesHint.innerHTML =
+            'Примеры к статье: ' +
+            '<a href="examples/narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
+            '<a href="examples/avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a>';
         root.appendChild(examplesHint);
     }
 
