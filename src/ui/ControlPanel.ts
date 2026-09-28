@@ -73,15 +73,15 @@ export class ControlPanel {
         const examplesHint = document.createElement("p");
         examplesHint.style.color = "#8b93a3";
         examplesHint.innerHTML =
-            'Примеры к статье: ' +
-            '<a href="examples/narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
-            '<a href="examples/avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
-            '<a href="examples/local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
-            '<a href="examples/pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
-            '<a href="examples/flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
-            '<a href="examples/dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
-            '<a href="examples/link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +
-            '<a href="examples/path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a>';
+            '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+            '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
+            '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
+            '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
+            '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
+            '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
+            '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
+            '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +
+            '<a href="path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a>';
         root.appendChild(examplesHint);
     }
 

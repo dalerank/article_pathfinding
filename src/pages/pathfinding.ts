@@ -336,7 +336,8 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
         'Кликнешь в стену — цель не пропадёт молча (как SetDestination), а притянется к ближайшей проходимой точке ' +
         '(NavMesh.SamplePosition), см. "Last click" ниже. Синий/серый — open/closed set последнего поиска. В Hierarchical A* жёлтым подсвечены регионы грубого пути. ' +
         'Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +

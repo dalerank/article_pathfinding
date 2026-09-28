@@ -219,7 +219,8 @@ function buildControls(root: HTMLElement, scene: DynamicObstacleScene): void {
         'Перетащи жёлтый квадрат. "Every drag move" честно перестраивает NavMesh на каждый кадр драга — дорого. ' +
         '"Only on release" двигает препятствие физически сразу (агенты и так его не пройдут — локальное столкновение), ' +
         'а путь/NavMesh пересчитывает только один раз, когда отпустишь. Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +

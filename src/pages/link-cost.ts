@@ -192,7 +192,8 @@ function buildControls(root: HTMLElement, scene: LinkCostScene): void {
         'Жёлтая рамка — узкий "линк" (короче, но по умолчанию не дороже обхода снизу). При cost 1x почти все агенты ' +
         'идут через него — A* просто минимизирует стоимость, ему всё равно, что там уже очередь. Подними Link cost, ' +
         'чтобы увидеть, как агенты сами перераспределяются на обход. Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +

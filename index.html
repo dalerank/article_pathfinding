@@ -5,13 +5,157 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NavMesh Sandbox</title>
     <link rel="stylesheet" href="/src/ui/style.css" />
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+        }
+
+        main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin: 0 0 8px;
+        }
+
+        p.lead {
+            color: #8b93a3;
+            font-size: 15px;
+            line-height: 1.6;
+            max-width: 640px;
+            margin: 0 0 32px;
+        }
+
+        p.lead a {
+            color: #4fc3f7;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 14px;
+        }
+
+        .card {
+            display: block;
+            background: #1b1f27;
+            border: 1px solid #2a2f3a;
+            border-radius: 8px;
+            padding: 16px 18px;
+            text-decoration: none;
+            color: #e6e8eb;
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+
+        .card:hover {
+            border-color: #4fc3f7;
+            transform: translateY(-1px);
+        }
+
+        .card .tag {
+            display: inline-block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6fd48a;
+            margin-bottom: 6px;
+        }
+
+        .card h2 {
+            font-size: 16px;
+            margin: 0 0 6px;
+        }
+
+        .card p {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #8b93a3;
+            margin: 0;
+        }
+
+        footer {
+            margin-top: 40px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        footer a {
+            color: #8b93a3;
+        }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <div id="game-root"></div>
-        <div id="control-panel"></div>
-        <div id="metrics-panel"></div>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+    <main>
+        <h1>NavMesh Sandbox</h1>
+        <p class="lead">
+            Интерактивные примеры к статье
+            «Почему 200 солдат не проходят в одни ворота» — про NavMesh, pathfinding и поведение толпы.
+            Каждая карточка — отдельная маленькая лаборатория: можно подвигать слайдеры, посмотреть на честно
+            измеренные числа и сломать систему так, как это описано в статье.
+        </p>
+
+        <div class="grid">
+            <a class="card" href="examples/sandbox.html">
+                <span class="tag">Sandbox</span>
+                <h2>Free Sandbox</h2>
+                <p>Открытая песочница: добавляй агентов и препятствия, двигай цель, смотри метрики.</p>
+            </a>
+
+            <a class="card" href="examples/narrow-gate.html">
+                <span class="tag">Crowd</span>
+                <h2>Narrow Gate</h2>
+                <p>Почему узкий проход создаёт затор — и почему видимая ширина не равна проходимой.</p>
+            </a>
+
+            <a class="card" href="examples/avoidance-priority.html">
+                <span class="tag">Crowd</span>
+                <h2>Avoidance Priority</h2>
+                <p>Одинаковый приоритет у всех vs случайный — как симметрия решений мешает толпе.</p>
+            </a>
+
+            <a class="card" href="examples/local-avoidance.html">
+                <span class="tag">Avoidance</span>
+                <h2>Local Avoidance</h2>
+                <p>Desired vs actual velocity выбранного агента: чем avoidance отличается от навигации.</p>
+            </a>
+
+            <a class="card" href="examples/pathfinding.html">
+                <span class="tag">Pathfinding</span>
+                <h2>A* / Hierarchical A*</h2>
+                <p>Обычный A* против иерархического: open/closed set, регионы, реальное время поиска.</p>
+            </a>
+
+            <a class="card" href="examples/flow-field.html">
+                <span class="tag">Pathfinding</span>
+                <h2>A* vs Flow Field</h2>
+                <p>Одно общее поле направлений вместо 200 независимых поисков — честный бенчмарк.</p>
+            </a>
+
+            <a class="card" href="examples/dynamic-obstacles.html">
+                <span class="tag">NavMesh</span>
+                <h2>Dynamic Obstacles</h2>
+                <p>Перетащи препятствие и сравни цену постоянной перестройки NavMesh с перестройкой по отпусканию.</p>
+            </a>
+
+            <a class="card" href="examples/link-cost.html">
+                <span class="tag">NavMesh</span>
+                <h2>Link Cost Override</h2>
+                <p>A* не видит, что проход уже переполнен — пока стоимость прохода не скажет ему об этом.</p>
+            </a>
+
+            <a class="card" href="examples/path-request-budget.html">
+                <span class="tag">Performance</span>
+                <h2>Path Request Budget</h2>
+                <p>Бюджет запросов пути за кадр и repath jitter — как синхронный пик превращается в очередь.</p>
+            </a>
+        </div>
+
+        <footer>
+            Исходники и статья: <a href="docs/article.md">docs/article.md</a>
+        </footer>
+    </main>
 </body>
 </html>

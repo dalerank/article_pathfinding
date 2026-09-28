@@ -18,18 +18,34 @@ npm install
 npm run dev
 ```
 
+Открой `http://localhost:5173/` — титульная страница со ссылками на все примеры.
+
 ## Сборка
 
 ```bash
 npm run build
 ```
 
+## Структура
+
+- `index.html` — титульная страница со ссылками на все примеры.
+- `examples/sandbox.html` — свободная песочница (добавление агентов/препятствий,
+  drag, метрики).
+- `examples/*.html` — восемь примеров, каждый со своей страницей и логикой в
+  `src/pages/*.ts`: Narrow Gate, Avoidance Priority, Local Avoidance,
+  A* / Hierarchical A*, A* vs Flow Field, Dynamic Obstacles, Link Cost Override,
+  Path Request Budget & Jitter.
+- `src/navigation` — NavMesh grid, A*, Hierarchical A*, Flow Field.
+- `src/avoidance` — local avoidance и avoidance priority.
+- `src/simulation` — мир, агенты, fixed-timestep loop, очередь path request.
+- `src/experiments` — конфигурация мира для каждого примера.
+
 ## Статус
 
-Сейчас реализован Phase 1 (базовый sandbox): мир, агенты, цель, препятствия,
-ввод (клик — цель, Shift+клик — агент, ПКМ — препятствие, drag — перемещение
-препятствия), рендеринг, fixed-timestep simulation loop и базовые метрики.
+Реализованы Phase 1–7 из раздела 23 спеки: базовый sandbox, NavMesh grid и A*,
+Hierarchical A*, crowd/avoidance с приоритетами, Flow Field, dynamic obstacles,
+path request budget + repath jitter, плюс не входившие в исходное ТЗ примеры
+(снэппинг цели через `NavMesh.SamplePosition`, cost override для OffMeshLink).
 
-Модули навигации (`src/navigation`), avoidance (`src/avoidance`) и экспериментов
-(`src/experiments`) — заглушки с сигнатурами из ТЗ; реализуются по фазам 2–8,
-описанным в разделе 23 спеки.
+Не реализовано: Phase 8 полировка (benchmark mode, URL-параметры
+`?experiment=`, адаптивная вёрстка под мобильные экраны).

@@ -158,7 +158,8 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     hint.innerHTML =
         'Ворота выглядят шире, чем они есть для центра агента: NavMesh отступает от стен на его радиус (см. "Effective width" ниже). ' +
         'Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +

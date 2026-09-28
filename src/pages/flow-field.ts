@@ -269,7 +269,8 @@ function buildControls(root: HTMLElement, scene: FlowFieldScene): void {
     hint.innerHTML =
         'Клик — новая цель. Flow Field: одно общее поле направлений читают все агенты сразу. A*: каждый агент ищет ' +
         'свой путь отдельно — сравни Benchmark при 200+ агентах. Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +

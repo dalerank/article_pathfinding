@@ -189,7 +189,8 @@ function buildControls(root: HTMLElement, scene: LocalAvoidanceScene): void {
     hint.innerHTML =
         'Клик по агенту: зелёная линия — desired velocity (куда он хочет), белая — actual (куда реально движется). ' +
         'Выключи avoidance, чтобы увидеть разницу. Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +

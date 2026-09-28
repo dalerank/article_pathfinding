@@ -276,7 +276,8 @@ function buildControls(root: HTMLElement, scene: PathRequestScene): void {
         'Все агенты появляются одновременно с одинаковым Repath interval — при Jitter = 0 они синхронно просыпаются каждые ' +
         'X секунд, и с "unlimited" бюджетом это виден пик frame time на графике внизу. Добавь Jitter, чтобы размазать ' +
         'пробуждения по времени, или ограничь Max requests/frame, чтобы превратить пик в очередь. Часть примеров к статье. ' +
-        '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
+        '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
