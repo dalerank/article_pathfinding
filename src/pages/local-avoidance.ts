@@ -193,7 +193,8 @@ function buildControls(root: HTMLElement, scene: LocalAvoidanceScene): void {
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
-        '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a>';
+        '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
+        '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a>';
     root.appendChild(hint);
 
     const tick = () => {

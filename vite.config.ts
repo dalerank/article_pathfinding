@@ -20,6 +20,7 @@ export default defineConfig({
                 localAvoidance: path.resolve(__dirname, "examples/local-avoidance.html"),
                 pathfinding: path.resolve(__dirname, "examples/pathfinding.html"),
                 flowField: path.resolve(__dirname, "examples/flow-field.html"),
+                dynamicObstacles: path.resolve(__dirname, "examples/dynamic-obstacles.html"),
             },
         },
     },
