@@ -15,7 +15,7 @@ export function buildNavMesh(world: World, cellSize = 16, agentRadius = DEFAULT_
 
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-            cells.push({ x: col, y: row, walkable: true, regionId: -1 });
+            cells.push({ x: col, y: row, walkable: true, regionId: -1, cost: 1 });
         }
     }
 

@@ -8,7 +8,13 @@ import { NavMeshRenderer } from "@/rendering/NavMeshRenderer";
 import { configurePathfinding, DEFAULT_PATHFINDING_OPTIONS } from "@/experiments/PathfindingExperiment";
 import { findPath } from "@/navigation/AStar";
 import { findHierarchicalPath, type HierarchicalDebugInfo } from "@/navigation/HierarchicalAStar";
-import type { Vec2 } from "@/simulation/Vec2";
+import { findNearestWalkable, worldToCell } from "@/navigation/NavMeshQuery";
+import { distance, type Vec2 } from "@/simulation/Vec2";
+
+/** How far (world px) to search for a walkable point when the click lands outside the NavMesh — NavMesh.SamplePosition's radius in the article. */
+const SNAP_RADIUS = 100;
+
+type TargetStatus = "ok" | "snapped" | "unreachable";
 
 const WORLD_WIDTH = 900;
 const WORLD_HEIGHT = 600;
@@ -28,6 +34,8 @@ class PathfindingScene extends Phaser.Scene {
     showRegions = false;
     lastFindPathMs = 0;
     heroPathLength = 0;
+    targetStatus: TargetStatus = "ok";
+    lastSnapDistance = 0;
 
     private agentRenderer!: AgentRenderer;
     private pathRenderer!: PathRenderer;
@@ -60,8 +68,7 @@ class PathfindingScene extends Phaser.Scene {
         this.reset();
 
         this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-            this.simulation.setTarget({ x: pointer.worldX, y: pointer.worldY });
-            this.recomputeDebug();
+            this.handleClick({ x: pointer.worldX, y: pointer.worldY });
         });
 
         this.input.keyboard?.on("keydown-SPACE", () => this.simulation.togglePaused());
@@ -97,6 +104,34 @@ class PathfindingScene extends Phaser.Scene {
             this.simulation.requestPath(agent);
         }
         this.recomputeDebug();
+    }
+
+    /**
+     * Article section "Иногда агент застрял ещё до того, как начал идти": a click outside the
+     * NavMesh doesn't just silently fail like SetDestination — it snaps to the nearest walkable
+     * point within SNAP_RADIUS (NavMesh.SamplePosition), or leaves the target untouched if nothing
+     * walkable is close enough.
+     */
+    private handleClick(point: Vec2): void {
+        const navMesh = this.simulation.navMesh;
+        if (!navMesh) return;
+
+        const cell = worldToCell(navMesh, point);
+        if (cell?.walkable) {
+            this.targetStatus = "ok";
+            this.simulation.setTarget(point);
+        } else {
+            const snapped = findNearestWalkable(navMesh, point, SNAP_RADIUS);
+            if (!snapped) {
+                this.targetStatus = "unreachable";
+                return; // SetDestination would return false here — target stays where it was.
+            }
+            this.targetStatus = "snapped";
+            this.lastSnapDistance = distance(point, snapped);
+            this.simulation.setTarget(snapped);
+        }
+
+        this.repathAll();
     }
 
     private recomputeDebug(): void {
@@ -279,6 +314,7 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
         ["findPath", "findPath() time"],
         ["waypoints", "Path waypoints"],
         ["regions", "Regions used"],
+        ["target", "Last click"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -297,20 +333,28 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
     hint.style.color = "#8b93a3";
     hint.innerHTML =
         'Клик — новая цель. Красный тон вокруг стен — недоступная из-за радиуса агента зона (NavMesh &ne; видимый пол). ' +
-        'Синий/серый — open/closed set последнего поиска. В Hierarchical A* жёлтым подсвечены регионы грубого пути. ' +
+        'Кликнешь в стену — цель не пропадёт молча (как SetDestination), а притянется к ближайшей проходимой точке ' +
+        '(NavMesh.SamplePosition), см. "Last click" ниже. Синий/серый — open/closed set последнего поиска. В Hierarchical A* жёлтым подсвечены регионы грубого пути. ' +
         'Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
-        '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a>';
+        '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
+        '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a>';
     root.appendChild(hint);
 
     const tick = () => {
         cells.findPath.textContent = `${scene.lastFindPathMs.toFixed(3)} ms`;
         cells.waypoints.textContent = String(scene.heroPathLength);
         cells.regions.textContent = scene.algorithm === "hierarchical" ? String(scene.regionsInLastPath()) : "-";
+        cells.target.textContent =
+            scene.targetStatus === "ok"
+                ? "OK (walkable)"
+                : scene.targetStatus === "snapped"
+                  ? `Snapped to nearest walkable (${scene.lastSnapDistance.toFixed(0)} px away)`
+                  : "Unreachable — target unchanged (SetDestination-style false)";
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

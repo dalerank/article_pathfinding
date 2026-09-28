@@ -21,6 +21,7 @@ export default defineConfig({
                 pathfinding: path.resolve(__dirname, "examples/pathfinding.html"),
                 flowField: path.resolve(__dirname, "examples/flow-field.html"),
                 dynamicObstacles: path.resolve(__dirname, "examples/dynamic-obstacles.html"),
+                linkCost: path.resolve(__dirname, "examples/link-cost.html"),
             },
         },
     },

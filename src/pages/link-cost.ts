@@ -2,27 +2,34 @@ import Phaser from "phaser";
 import { Simulation } from "@/simulation/Simulation";
 import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
+import type { Agent } from "@/simulation/Agent";
 import { AgentRenderer } from "@/rendering/AgentRenderer";
-import { DEFAULT_AGENT_RADIUS } from "@/simulation/Agent";
-import { configureNarrowGate, DEFAULT_NARROW_GATE_OPTIONS } from "@/experiments/NarrowGateExperiment";
+import { PathRenderer } from "@/rendering/PathRenderer";
+import { NavMeshRenderer } from "@/rendering/NavMeshRenderer";
+import { configureLinkCost, DEFAULT_LINK_COST_OPTIONS, linkZoneFor, type LinkZone } from "@/experiments/LinkCostExperiment";
 
 const WORLD_WIDTH = 900;
-const WORLD_HEIGHT = 500;
+const WORLD_HEIGHT = 600;
 const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
-const THROUGH_ZONE_X = WORLD_WIDTH - 70;
+const LINK_ZONE_COLOR = 0xffca28;
 
-class NarrowGateScene extends Phaser.Scene {
+class LinkCostScene extends Phaser.Scene {
     simulation!: Simulation;
-    gateWidth = DEFAULT_NARROW_GATE_OPTIONS.gateWidth;
-    agentCount = DEFAULT_NARROW_GATE_OPTIONS.agentCount;
+    agentCount = DEFAULT_LINK_COST_OPTIONS.agentCount;
+    linkCost = DEFAULT_LINK_COST_OPTIONS.linkCost;
+    showGrid = false;
 
     private agentRenderer!: AgentRenderer;
+    private pathRenderer!: PathRenderer;
+    private navMeshRenderer!: NavMeshRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
+    private zoneGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
+    private zone!: LinkZone;
 
     constructor() {
-        super("narrow-gate");
+        super("link-cost");
     }
 
     create(): void {
@@ -30,10 +37,14 @@ class NarrowGateScene extends Phaser.Scene {
 
         const world = createWorld(createTarget({ x: 0, y: 0 }), WORLD_WIDTH, WORLD_HEIGHT);
         this.simulation = new Simulation(world);
+        this.zone = linkZoneFor(world);
 
+        this.navMeshRenderer = new NavMeshRenderer(this);
         this.obstacleGraphics = this.add.graphics();
-        this.targetGraphics = this.add.graphics();
+        this.zoneGraphics = this.add.graphics();
+        this.pathRenderer = new PathRenderer(this);
         this.agentRenderer = new AgentRenderer(this);
+        this.targetGraphics = this.add.graphics();
 
         this.reset();
 
@@ -43,20 +54,26 @@ class NarrowGateScene extends Phaser.Scene {
 
     update(_time: number, delta: number): void {
         this.simulation.update(delta);
-        this.agentRenderer.render(this.simulation.world.agents);
+
+        this.navMeshRenderer.render(this.showGrid ? this.simulation.navMesh : null);
+        this.drawZone();
         this.drawObstacles();
+        this.pathRenderer.render(this.simulation.world.agents);
+        this.agentRenderer.render(this.simulation.world.agents);
         this.drawTarget();
     }
 
     reset(): void {
-        configureNarrowGate(this.simulation, {
-            gateWidth: this.gateWidth,
-            agentCount: this.agentCount,
-        });
+        configureLinkCost(this.simulation, { agentCount: this.agentCount, linkCost: this.linkCost });
     }
 
-    agentsThrough(): number {
-        return this.simulation.world.agents.filter((agent) => agent.position.x >= THROUGH_ZONE_X).length;
+    /** An agent "uses the link" if its computed path passes through the narrow, cost-weighted gap. */
+    usesLink(agent: Agent): boolean {
+        return agent.path.some((p) => p.x >= this.zone.x0 && p.x <= this.zone.x1 && p.y >= this.zone.y0 && p.y <= this.zone.y1);
+    }
+
+    countViaLink(): number {
+        return this.simulation.world.agents.filter((a) => this.usesLink(a)).length;
     }
 
     private drawObstacles(): void {
@@ -67,6 +84,12 @@ class NarrowGateScene extends Phaser.Scene {
         }
     }
 
+    private drawZone(): void {
+        this.zoneGraphics.clear();
+        this.zoneGraphics.lineStyle(1.5, LINK_ZONE_COLOR, 0.8);
+        this.zoneGraphics.strokeRect(this.zone.x0, this.zone.y0, this.zone.x1 - this.zone.x0, this.zone.y1 - this.zone.y0);
+    }
+
     private drawTarget(): void {
         const { x, y } = this.simulation.world.target.position;
         this.targetGraphics.clear();
@@ -75,32 +98,43 @@ class NarrowGateScene extends Phaser.Scene {
     }
 }
 
-function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
+function buildControls(root: HTMLElement, scene: LinkCostScene): void {
     root.innerHTML = "";
 
     const heading = document.createElement("h2");
-    heading.textContent = "Narrow Gate";
+    heading.textContent = "Link Cost Override";
     root.appendChild(heading);
 
-    const gateRow = document.createElement("div");
-    gateRow.className = "control-row";
-    const gateLabel = document.createElement("label");
-    gateLabel.textContent = "Gate width";
-    const gateInput = document.createElement("input");
-    gateInput.type = "range";
-    gateInput.min = "20";
-    gateInput.max = "260";
-    gateInput.step = "5";
-    gateInput.value = String(scene.gateWidth);
-    const gateValue = document.createElement("span");
-    gateValue.textContent = `${gateInput.value} px`;
-    gateInput.addEventListener("input", () => {
-        scene.gateWidth = Number(gateInput.value);
-        gateValue.textContent = `${gateInput.value} px`;
+    const costRow = document.createElement("div");
+    costRow.className = "control-row";
+    const costLabel = document.createElement("label");
+    costLabel.textContent = "Link cost";
+    const costInput = document.createElement("input");
+    costInput.type = "range";
+    costInput.min = "1";
+    costInput.max = "10";
+    costInput.step = "0.5";
+    costInput.value = String(scene.linkCost);
+    const costValue = document.createElement("span");
+    costValue.textContent = `${costInput.value}x`;
+    costInput.addEventListener("input", () => {
+        scene.linkCost = Number(costInput.value);
+        costValue.textContent = `${costInput.value}x`;
         scene.reset();
     });
-    gateRow.append(gateLabel, gateInput, gateValue);
-    root.appendChild(gateRow);
+    costRow.append(costLabel, costInput, costValue);
+    root.appendChild(costRow);
+
+    const gridRow = document.createElement("div");
+    gridRow.className = "control-row";
+    const gridLabel = document.createElement("label");
+    gridLabel.textContent = "Show grid";
+    const gridCheckbox = document.createElement("input");
+    gridCheckbox.type = "checkbox";
+    gridCheckbox.checked = scene.showGrid;
+    gridCheckbox.addEventListener("change", () => (scene.showGrid = gridCheckbox.checked));
+    gridRow.append(gridLabel, gridCheckbox);
+    root.appendChild(gridRow);
 
     const agentsRow = document.createElement("div");
     agentsRow.className = "control-row";
@@ -108,7 +142,7 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     agentsLabel.textContent = "Agents";
     const agentsInput = document.createElement("input");
     agentsInput.type = "range";
-    agentsInput.min = "10";
+    agentsInput.min = "20";
     agentsInput.max = "200";
     agentsInput.step = "10";
     agentsInput.value = String(scene.agentCount);
@@ -136,9 +170,8 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     const table = document.createElement("table");
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
-        ["through", "Agents through"],
-        ["elapsed", "Time (s)"],
-        ["effective", "Effective width (center)"],
+        ["link", "Via link (narrow, weighted)"],
+        ["detour", "Via detour (wide, free)"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -146,7 +179,7 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
         const th = document.createElement("td");
         th.textContent = label;
         const td = document.createElement("td");
-        td.textContent = "0";
+        td.textContent = "-";
         cells[key] = td;
         tr.append(th, td);
         table.appendChild(tr);
@@ -156,22 +189,23 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Ворота выглядят шире, чем они есть для центра агента: NavMesh отступает от стен на его радиус (см. "Effective width" ниже). ' +
-        'Часть примеров к статье. ' +
+        'Жёлтая рамка — узкий "линк" (короче, но по умолчанию не дороже обхода снизу). При cost 1x почти все агенты ' +
+        'идут через него — A* просто минимизирует стоимость, ему всё равно, что там уже очередь. Подними Link cost, ' +
+        'чтобы увидеть, как агенты сами перераспределяются на обход. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
+        '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
-        '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
-        '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a>';
+        '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a>';
     root.appendChild(hint);
 
     const tick = () => {
-        cells.through.textContent = String(scene.agentsThrough());
-        cells.elapsed.textContent = scene.simulation.getElapsedSeconds().toFixed(1);
-        const effective = Math.max(0, scene.gateWidth - 2 * DEFAULT_AGENT_RADIUS);
-        cells.effective.textContent = `${effective} px (visual ${scene.gateWidth} px − 2×radius ${DEFAULT_AGENT_RADIUS} px)`;
+        const total = scene.simulation.world.agents.length;
+        const viaLink = scene.countViaLink();
+        cells.link.textContent = `${viaLink} / ${total}`;
+        cells.detour.textContent = `${total - viaLink} / ${total}`;
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -181,10 +215,10 @@ const gameRoot = document.getElementById("game-root");
 const controlRoot = document.getElementById("control-panel");
 
 if (!gameRoot || !controlRoot) {
-    throw new Error("narrow-gate: expected #game-root and #control-panel in examples/narrow-gate.html");
+    throw new Error("link-cost: expected #game-root and #control-panel in examples/link-cost.html");
 }
 
-const scene = new NarrowGateScene();
+const scene = new LinkCostScene();
 const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: gameRoot,

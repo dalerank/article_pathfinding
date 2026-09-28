@@ -74,7 +74,7 @@ export function buildFlowField(navMesh: NavMesh, target: Vec2): FlowField {
             const neighborIndex = cellIndex(navMesh, neighbor.x, neighbor.y);
             if (visited[neighborIndex]) continue;
 
-            const newCost = integration[currentIndex] + cost;
+            const newCost = integration[currentIndex] + cost * neighbor.cost;
             if (newCost < integration[neighborIndex]) {
                 integration[neighborIndex] = newCost;
                 open.push(neighborIndex);

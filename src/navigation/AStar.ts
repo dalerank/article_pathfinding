@@ -120,7 +120,7 @@ function neighbors(navMesh: NavMesh, node: NodeRecord, diagonal: boolean): Neigh
 
     for (const [dx, dy] of ORTHOGONAL) {
         const cell = cellAt(navMesh, node.col + dx, node.row + dy);
-        if (cell?.walkable) result.push({ col: cell.x, row: cell.y, cost: 1 });
+        if (cell?.walkable) result.push({ col: cell.x, row: cell.y, cost: 1 * cell.cost });
     }
 
     if (diagonal) {
@@ -131,7 +131,7 @@ function neighbors(navMesh: NavMesh, node: NodeRecord, diagonal: boolean): Neigh
             const sideA = cellAt(navMesh, node.col + dx, node.row);
             const sideB = cellAt(navMesh, node.col, node.row + dy);
             if (!sideA?.walkable || !sideB?.walkable) continue;
-            result.push({ col: cell.x, row: cell.y, cost: Math.SQRT2 });
+            result.push({ col: cell.x, row: cell.y, cost: Math.SQRT2 * cell.cost });
         }
     }
 

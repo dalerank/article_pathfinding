@@ -6,6 +6,8 @@ export interface NavCell {
     y: number;
     walkable: boolean;
     regionId: number;
+    /** Multiplies the cost of moving into this cell (spec section 7's OffMeshLink costOverride). 1 = no penalty. */
+    cost: number;
 }
 
 export interface NavMesh {
