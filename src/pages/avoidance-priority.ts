@@ -203,7 +203,8 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
         'Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
-        '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a>';
+        '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
+        '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a>';
     root.appendChild(hint);
 
     const tick = () => {

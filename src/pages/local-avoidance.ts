@@ -191,7 +191,8 @@ function buildControls(root: HTMLElement, scene: LocalAvoidanceScene): void {
         'Выключи avoidance, чтобы увидеть разницу. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
-        '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a>';
+        '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
+        '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a>';
     root.appendChild(hint);
 
     const tick = () => {

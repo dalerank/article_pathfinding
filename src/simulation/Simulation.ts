@@ -4,15 +4,22 @@ import { createAgent } from "./Agent";
 import { createObstacle, type Obstacle } from "./Obstacle";
 import { distance, length, normalize, scale, sub, type Vec2 } from "./Vec2";
 import { blendVelocities, computeAvoidanceVelocity } from "@/avoidance/LocalAvoidance";
+import { findPath } from "@/navigation/AStar";
+import type { NavMesh } from "@/navigation/NavMesh";
 
 /**
  * Fixed timestep, see spec section 18 (Simulation Loop).
- * Global navigation (A*, Hierarchical A*, Flow Field) is still a stub
- * (Phase 2/3/5) — agents currently seek their destination directly, blended
- * with local avoidance (section 11) and clamped against obstacle rectangles.
+ * With no NavMesh set, agents seek their destination directly (Phase 1
+ * behavior) — Hierarchical A* and Flow Field (Phase 3/5) are still stubs.
+ * With a NavMesh set (`setNavMesh`), agents follow the A*-computed
+ * Agent.path waypoint by waypoint instead. Either way the seek velocity is
+ * blended with local avoidance (section 11) and clamped against obstacles.
  */
 export const SIMULATION_HZ = 60;
 export const FIXED_DT = 1 / SIMULATION_HZ;
+
+/** How close to a waypoint counts as "arrived" before advancing to the next one. */
+const WAYPOINT_ARRIVE_RADIUS = 10;
 
 export interface SimulationMetrics {
     frameTime: number;
@@ -26,10 +33,12 @@ export interface SimulationMetrics {
 
 export class Simulation {
     readonly world: World;
+    navMesh: NavMesh | null = null;
     private accumulator = 0;
     private paused = false;
     private elapsedSeconds = 0;
     private avoidanceTimeAccumulator = 0;
+    private pathfindingTimeAccumulator = 0;
     private lastMetrics: SimulationMetrics = {
         frameTime: 0,
         simulationTime: 0,
@@ -71,6 +80,7 @@ export class Simulation {
             ...overrides,
         });
         this.world.agents.push(agent);
+        if (this.navMesh) this.requestPath(agent);
         return agent;
     }
 
@@ -84,7 +94,25 @@ export class Simulation {
         this.world.target.position = { ...position };
         for (const agent of this.world.agents) {
             agent.destination = { ...position };
+            if (this.navMesh) this.requestPath(agent);
         }
+    }
+
+    setNavMesh(navMesh: NavMesh | null): void {
+        this.navMesh = navMesh;
+    }
+
+    /** Synchronously computes Agent.path via A*. No request queue/budget yet (spec section 13's separate experiment). */
+    requestPath(agent: Agent): void {
+        if (!this.navMesh || !agent.destination) {
+            agent.path = [];
+            agent.pathIndex = 0;
+            return;
+        }
+        const start = performance.now();
+        agent.path = findPath(this.navMesh, agent.position, agent.destination);
+        agent.pathIndex = 0;
+        this.pathfindingTimeAccumulator += performance.now() - start;
     }
 
     /** Advances the fixed-timestep simulation by `deltaMs` of wall-clock time. */
@@ -115,30 +143,40 @@ export class Simulation {
         this.lastMetrics = {
             frameTime: performance.now() - frameStart,
             simulationTime,
-            pathfindingTime: 0,
+            pathfindingTime: this.pathfindingTimeAccumulator,
             avoidanceTime: this.avoidanceTimeAccumulator,
             renderingTime: 0,
             agentCount: this.world.agents.length,
             activeAgentCount: this.world.agents.filter((a) => a.path.length > 0 || a.destination !== null).length,
         };
+        // Reported above, then cleared — a burst of requestPath calls between
+        // frames (e.g. many agents added at once) shows up on the very next one.
+        this.pathfindingTimeAccumulator = 0;
     }
 
     getMetrics(): SimulationMetrics {
         return this.lastMetrics;
     }
 
-    /** One fixed-timestep tick: seek + local avoidance + obstacle collision. */
+    /** One fixed-timestep tick: seek (waypoint or direct) + local avoidance + obstacle collision. */
     private step(dt: number): void {
         for (const agent of this.world.agents) {
             if (!agent.destination) continue;
 
-            const dist = distance(agent.position, agent.destination);
+            if (agent.path.length > 0 && agent.pathIndex < agent.path.length - 1) {
+                if (distance(agent.position, agent.path[agent.pathIndex]) < WAYPOINT_ARRIVE_RADIUS) {
+                    agent.pathIndex++;
+                }
+            }
+            const seekTarget = agent.path.length > 0 ? agent.path[agent.pathIndex] : agent.destination;
+
+            const dist = distance(agent.position, seekTarget);
             if (dist < 1) {
                 agent.velocity = { x: 0, y: 0 };
                 continue;
             }
 
-            const desired = scale(normalize(sub(agent.destination, agent.position)), agent.maxSpeed);
+            const desired = scale(normalize(sub(seekTarget, agent.position)), agent.maxSpeed);
 
             let candidate = desired;
             if (agent.avoidanceEnabled) {
