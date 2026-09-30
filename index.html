@@ -143,6 +143,94 @@
             </a>
         </div>
 
+        <h1 style="margin-top: 48px;">Lag Compensation</h1>
+        <p class="lead">
+            Примеры к статье про сетевые шутеры — почему «я же попал» на экране игрока может быть честным
+            «мимо» на сервере, и как rewind hitbox'ов эту ложь исправляет (и где у неё есть цена).
+        </p>
+
+        <div class="grid">
+            <a class="card" href="examples/shooting-naive-raycast.html">
+                <span class="tag">Netcode</span>
+                <h2>Naive Raycast</h2>
+                <p>Клиент видит цель с задержкой, сервер проверяет попадание по её текущей позиции — без компенсации.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-time-machine.html">
+                <span class="tag">Netcode</span>
+                <h2>Time Machine</h2>
+                <p>Сервер хранит историю hitbox'ов и откатывается назад перед проверкой — почему честный выстрел снова попадает.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-rewind-formula.html">
+                <span class="tag">Netcode</span>
+                <h2>Rewind Formula</h2>
+                <p>rewindTime = RTT/2 + interpolation delay — два независимых слагаемых задержки клиента, живой расчёт.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-max-rewind.html">
+                <span class="tag">Netcode</span>
+                <h2>Max Rewind Window</h2>
+                <p>Без лимита отката игрок с большим пингом попадает по тем, кто уже спрятался за укрытием — peek-and-hide.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-spatial-filter.html">
+                <span class="tag">Performance</span>
+                <h2>Spatial Filter</h2>
+                <p>Зачем перематывать всех 32 игроков на каждый выстрел — честно измеренная экономика broad-phase фильтра.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-hitbox-order.html">
+                <span class="tag">Netcode</span>
+                <h2>Hitbox vs Animation Order</h2>
+                <p>Без единого байта сети: порядок SaveHitboxSnapshot() и UpdateAnimation() сам по себе сдвигает hitbox от позы.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-trust-but-verify.html">
+                <span class="tag">Security</span>
+                <h2>Trust But Verify</h2>
+                <p>Клиент лжёт о своей задержке, чтобы выцепить выгодный момент из прошлого — сервер сверяет заявку с честным пингом.</p>
+            </a>
+
+            <a class="card" href="examples/shooting-already-dead.html">
+                <span class="tag">Netcode</span>
+                <h2>Already Dead</h2>
+                <p>Игрок умер, пока летел пакет с выстрелом — сервер честно спрашивает «а был ли он жив, когда стрелял?».</p>
+            </a>
+
+            <a class="card" href="examples/shooting-rollback-vs-lagcomp.html">
+                <span class="tag">Netcode</span>
+                <h2>Rollback vs Lag Compensation</h2>
+                <p>Одна и та же фраза «отмотать время назад» — либо откат одного hitbox'а, либо переигровка всего мира.</p>
+            </a>
+        </div>
+
+        <h1 style="margin-top: 48px;">Coyote Time</h1>
+        <p class="lead">
+            Примеры к статье про coyote time и jump buffer — почему «физически корректная» проверка приземления
+            ощущается как баг, и как игры намеренно врут игроку про время, чтобы управление казалось отзывчивым.
+        </p>
+
+        <div class="grid">
+            <a class="card" href="examples/coyote-edge-timing.html">
+                <span class="tag">Platformer</span>
+                <h2>Coyote Time</h2>
+                <p>Беги к краю платформы и жми прыжок в разный момент — окно прощения превращает «поздно» в честный прыжок.</p>
+            </a>
+
+            <a class="card" href="examples/coyote-jump-buffer.html">
+                <span class="tag">Platformer</span>
+                <h2>Jump Buffer</h2>
+                <p>Обратная проблема: нажал прыжок чуть раньше приземления — игра не должна терять это намерение.</p>
+            </a>
+
+            <a class="card" href="examples/coyote-tuning.html">
+                <span class="tag">Platformer</span>
+                <h2>Forgiveness Tuning</h2>
+                <p>Сотни попыток с реалистичным разбросом реакции — как выбор coyoteTime/jumpBuffer меняет долю прощённых нажатий.</p>
+            </a>
+        </div>
+
     </main>
 </body>
 </html>
