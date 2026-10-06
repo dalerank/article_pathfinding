@@ -229,7 +229,9 @@ function buildControls(root: HTMLElement, scene: DynamicObstacleScene): void {
         '<a href="target-snapping.html" style="color:#4fc3f7">Target Snapping</a> &middot; ' +
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
         '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +
-        '<a href="path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a>';
+        '<a href="path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a> &middot; ' +
+        '<a href="astar-scale.html" style="color:#4fc3f7">A* Cost at Scale</a> &middot; ' +
+        '<a href="stale-path.html" style="color:#4fc3f7">Stale Path</a>';
     root.appendChild(hint);
 
     const tick = () => {

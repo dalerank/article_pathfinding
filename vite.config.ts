@@ -26,6 +26,8 @@ export default defineConfig({
                 dynamicObstacles: path.resolve(__dirname, "examples/dynamic-obstacles.html"),
                 linkCost: path.resolve(__dirname, "examples/link-cost.html"),
                 pathRequestBudget: path.resolve(__dirname, "examples/path-request-budget.html"),
+                astarScale: path.resolve(__dirname, "examples/astar-scale.html"),
+                stalePath: path.resolve(__dirname, "examples/stale-path.html"),
                 shootingNaiveRaycast: path.resolve(__dirname, "examples/shooting-naive-raycast.html"),
                 shootingTimeMachine: path.resolve(__dirname, "examples/shooting-time-machine.html"),
                 shootingRewindFormula: path.resolve(__dirname, "examples/shooting-rewind-formula.html"),

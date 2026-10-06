@@ -39,10 +39,10 @@ npm run build
 
 - `index.html` — landing page linking to every example.
 - `examples/sandbox.html` — free sandbox (add agents/obstacles, drag, metrics).
-- `examples/*.html` — ten NavMesh examples, each with its own page and logic in
+- `examples/*.html` — twelve NavMesh examples, each with its own page and logic in
   `src/pages/*.ts`: Narrow Gate, Effective Width, Avoidance Priority, Local Avoidance,
   A* / Hierarchical A*, Target Snapping, A* vs Flow Field, Dynamic Obstacles,
-  Link Cost Override, Path Request Budget & Jitter.
+  Link Cost Override, Path Request Budget & Jitter, A* Cost at Scale, Stale Path.
 - `examples/shooting-*.html` — nine lag-compensation examples (`src/pages/shooting-*.ts`):
   Naive Raycast, Time Machine, Rewind Formula, Max Rewind Window, Spatial Filter,
   Hitbox vs Animation Order, Trust But Verify, Already Dead, Rollback vs Lag
