@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { Simulation } from "@/simulation/Simulation";
+import { Simulation, resolveCircleRectCollision } from "@/simulation/Simulation";
 import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
 import type { Agent } from "@/simulation/Agent";
@@ -15,6 +15,7 @@ const WORLD_HEIGHT = 500;
 const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
 const THROUGH_ZONE_X = WORLD_WIDTH - 70;
+const COLLISION_ITERATIONS = 4;
 
 /** Blue (low priority, yields) -> orange (high priority, bulldozes through). Uniform mode collapses to one shade. */
 function colorForPriority(agent: Agent): number {
@@ -31,10 +32,12 @@ class AvoidancePriorityScene extends Phaser.Scene {
     agentCount = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.agentCount;
     gateWidth = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.gateWidth;
     clearedAt: number | null = null;
+    blockedCount = 0;
 
     private agentRenderer!: AgentRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
+    private blockedIds = new Set<number>();
 
     constructor() {
         super("avoidance-priority");
@@ -58,12 +61,65 @@ class AvoidancePriorityScene extends Phaser.Scene {
 
     update(_time: number, delta: number): void {
         this.simulation.update(delta);
+        this.resolveAgentCollisions();
+        this.blockedCount = this.blockedIds.size;
         this.agentRenderer.render(this.simulation.world.agents, colorForPriority);
         this.drawObstacles();
         this.drawTarget();
 
         if (this.clearedAt === null && this.agentsThrough() === this.simulation.world.agents.length) {
             this.clearedAt = this.simulation.getElapsedSeconds();
+        }
+    }
+
+    /**
+     * The shared Simulation only nudges agents apart with a soft steering push (see
+     * LocalAvoidance.ts) — at a wide-open gate that's fine, but at this single-file width
+     * (see Effective Width) it lets agents partially overlap and slip through together
+     * regardless of priority, which is exactly why Uniform and Random used to clear at
+     * the same rate. This resolves agent-agent overlap as a hard constraint (local to
+     * this page) so priority actually decides who gets through the gate first.
+     */
+    private resolveAgentCollisions(): void {
+        const agents = this.simulation.world.agents;
+        const obstacles = this.simulation.world.obstacles;
+        this.blockedIds.clear();
+
+        for (let iteration = 0; iteration < COLLISION_ITERATIONS; iteration++) {
+            for (let i = 0; i < agents.length; i++) {
+                for (let j = i + 1; j < agents.length; j++) {
+                    const a = agents[i];
+                    const b = agents[j];
+                    const dx = b.position.x - a.position.x;
+                    const dy = b.position.y - a.position.y;
+                    const minDist = a.radius + b.radius;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist >= minDist) continue;
+
+                    this.blockedIds.add(a.id);
+                    this.blockedIds.add(b.id);
+
+                    if (dist === 0) dist = 0.01;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const overlap = minDist - dist;
+
+                    // Same priority semantics as LocalAvoidance's steering: the higher-priority
+                    // agent gives up less ground. Equal priority (Uniform) reduces to the old 50/50 split.
+                    const totalPriority = a.avoidancePriority + b.avoidancePriority || 1;
+                    const aShare = b.avoidancePriority / totalPriority;
+                    const bShare = a.avoidancePriority / totalPriority;
+
+                    a.position = { x: a.position.x - nx * overlap * aShare, y: a.position.y - ny * overlap * aShare };
+                    b.position = { x: b.position.x + nx * overlap * bShare, y: b.position.y + ny * overlap * bShare };
+                }
+            }
+
+            for (const agent of agents) {
+                for (const obstacle of obstacles) {
+                    agent.position = resolveCircleRectCollision(agent.position, agent.radius, obstacle);
+                }
+            }
         }
     }
 
@@ -180,6 +236,7 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
         ["through", "Agents through"],
+        ["blocked", "Blocked now (overlapping)"],
         ["elapsed", "Time (s)"],
         ["cleared", "Cleared in"],
     ];
@@ -199,8 +256,11 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Синий = низкий приоритет (уступает), оранжевый = высокий (проталкивается). ' +
-        'Часть примеров к статье. ' +
+        'Синий = низкий приоритет (уступает), оранжевый = высокий (проталкивается). Ворота здесь намеренно однополосные ' +
+        '(как в Effective Width) — при Uniform всем достаётся ровно 50, отталкивание буквально симметрично, и толпа ' +
+        'подолгу топчется перед проходом, пропуская по одному крайне редко. При Random у каждого свой приоритет 0-99: ' +
+        'более "наглые" агенты естественным образом формируют очередь и проходят почти без запинки — сравните Cleared in ' +
+        'на одном и том же количестве агентов. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
@@ -220,6 +280,7 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     const tick = () => {
         const total = scene.simulation.world.agents.length;
         cells.through.textContent = `${scene.agentsThrough()} / ${total}`;
+        cells.blocked.textContent = String(scene.blockedCount);
         cells.elapsed.textContent = scene.simulation.getElapsedSeconds().toFixed(1);
         cells.cleared.textContent = scene.clearedAt !== null ? `${scene.clearedAt.toFixed(1)} s` : "-";
         requestAnimationFrame(tick);
