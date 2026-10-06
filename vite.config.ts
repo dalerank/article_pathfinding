@@ -19,6 +19,7 @@ export default defineConfig({
                 narrowGate: path.resolve(__dirname, "examples/narrow-gate.html"),
                 effectiveWidth: path.resolve(__dirname, "examples/effective-width.html"),
                 avoidancePriority: path.resolve(__dirname, "examples/avoidance-priority.html"),
+                priorityStandoff: path.resolve(__dirname, "examples/priority-standoff.html"),
                 localAvoidance: path.resolve(__dirname, "examples/local-avoidance.html"),
                 pathfinding: path.resolve(__dirname, "examples/pathfinding.html"),
                 targetSnapping: path.resolve(__dirname, "examples/target-snapping.html"),

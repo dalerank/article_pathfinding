@@ -221,6 +221,7 @@ function buildControls(root: HTMLElement, scene: EffectiveWidthScene): void {
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
+        '<a href="priority-standoff.html" style="color:#4fc3f7">Priority Standoff</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
         '<a href="target-snapping.html" style="color:#4fc3f7">Target Snapping</a> &middot; ' +

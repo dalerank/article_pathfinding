@@ -2,42 +2,35 @@ import Phaser from "phaser";
 import { Simulation } from "@/simulation/Simulation";
 import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
-import type { Agent } from "@/simulation/Agent";
 import { AgentRenderer } from "@/rendering/AgentRenderer";
+import { distance } from "@/simulation/Vec2";
+import type { Agent } from "@/simulation/Agent";
 import {
-    configureAvoidancePriority,
-    DEFAULT_AVOIDANCE_PRIORITY_OPTIONS,
-} from "@/experiments/AvoidanceExperiment";
-import type { PriorityMode } from "@/avoidance/AvoidancePriority";
+    configurePriorityStandoff,
+    DEFAULT_PRIORITY_STANDOFF_OPTIONS,
+    type PriorityMode,
+} from "@/experiments/PriorityStandoffExperiment";
 
 const WORLD_WIDTH = 900;
 const WORLD_HEIGHT = 500;
 const OBSTACLE_COLOR = 0x3a4152;
-const TARGET_COLOR = 0xef5350;
-const THROUGH_ZONE_X = WORLD_WIDTH - 70;
+const A_COLOR = 0x4fc3f7;
+const B_COLOR = 0xef5350;
+const ARRIVE_RADIUS = 5;
 
-/** Blue (low priority, yields) -> orange (high priority, bulldozes through). Uniform mode collapses to one shade. */
-function colorForPriority(agent: Agent): number {
-    const t = agent.avoidancePriority / 99;
-    const r = Math.round(79 + (255 - 79) * t);
-    const g = Math.round(195 + (112 - 195) * t);
-    const b = Math.round(247 + (67 - 247) * t);
-    return (r << 16) | (g << 8) | b;
-}
-
-class AvoidancePriorityScene extends Phaser.Scene {
+class PriorityStandoffScene extends Phaser.Scene {
     simulation!: Simulation;
-    mode: PriorityMode = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.mode;
-    agentCount = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.agentCount;
-    gateWidth = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.gateWidth;
+    mode: PriorityMode = DEFAULT_PRIORITY_STANDOFF_OPTIONS.mode;
     clearedAt: number | null = null;
 
+    private aId!: number;
+    private bId!: number;
     private agentRenderer!: AgentRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
-    private targetGraphics!: Phaser.GameObjects.Graphics;
+    private markerGraphics!: Phaser.GameObjects.Graphics;
 
     constructor() {
-        super("avoidance-priority");
+        super("priority-standoff");
     }
 
     create(): void {
@@ -47,7 +40,7 @@ class AvoidancePriorityScene extends Phaser.Scene {
         this.simulation = new Simulation(world);
 
         this.obstacleGraphics = this.add.graphics();
-        this.targetGraphics = this.add.graphics();
+        this.markerGraphics = this.add.graphics();
         this.agentRenderer = new AgentRenderer(this);
 
         this.reset();
@@ -58,26 +51,38 @@ class AvoidancePriorityScene extends Phaser.Scene {
 
     update(_time: number, delta: number): void {
         this.simulation.update(delta);
-        this.agentRenderer.render(this.simulation.world.agents, colorForPriority);
+        this.agentRenderer.render(this.simulation.world.agents, (agent) => (agent.id === this.aId ? A_COLOR : B_COLOR));
         this.drawObstacles();
-        this.drawTarget();
+        this.drawMarkers();
 
-        if (this.clearedAt === null && this.agentsThrough() === this.simulation.world.agents.length) {
+        if (this.clearedAt === null && this.bothArrived()) {
             this.clearedAt = this.simulation.getElapsedSeconds();
         }
     }
 
     reset(): void {
         this.clearedAt = null;
-        configureAvoidancePriority(this.simulation, {
-            mode: this.mode,
-            agentCount: this.agentCount,
-            gateWidth: this.gateWidth,
-        });
+        configurePriorityStandoff(this.simulation, { mode: this.mode });
+        this.aId = this.simulation.world.agents[0].id;
+        this.bId = this.simulation.world.agents[1].id;
     }
 
-    agentsThrough(): number {
-        return this.simulation.world.agents.filter((agent) => agent.position.x >= THROUGH_ZONE_X).length;
+    agentA(): Agent {
+        return this.simulation.world.agents.find((a) => a.id === this.aId)!;
+    }
+
+    agentB(): Agent {
+        return this.simulation.world.agents.find((a) => a.id === this.bId)!;
+    }
+
+    gap(): number {
+        return distance(this.agentA().position, this.agentB().position);
+    }
+
+    private bothArrived(): boolean {
+        return this.simulation.world.agents.every(
+            (agent) => agent.destination !== null && distance(agent.position, agent.destination) < ARRIVE_RADIUS,
+        );
     }
 
     private drawObstacles(): void {
@@ -88,19 +93,24 @@ class AvoidancePriorityScene extends Phaser.Scene {
         }
     }
 
-    private drawTarget(): void {
-        const { x, y } = this.simulation.world.target.position;
-        this.targetGraphics.clear();
-        this.targetGraphics.lineStyle(2, TARGET_COLOR, 1);
-        this.targetGraphics.strokeCircle(x, y, 10);
+    private drawMarkers(): void {
+        this.markerGraphics.clear();
+        for (const [agent, color] of [
+            [this.agentA(), A_COLOR],
+            [this.agentB(), B_COLOR],
+        ] as const) {
+            if (!agent.destination) continue;
+            this.markerGraphics.lineStyle(2, color, 0.7);
+            this.markerGraphics.strokeCircle(agent.destination.x, agent.destination.y, 10);
+        }
     }
 }
 
-function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
+function buildControls(root: HTMLElement, scene: PriorityStandoffScene): void {
     root.innerHTML = "";
 
     const heading = document.createElement("h2");
-    heading.textContent = "Avoidance Priority";
+    heading.textContent = "Priority Standoff";
     root.appendChild(heading);
 
     const modeRow = document.createElement("div");
@@ -109,8 +119,8 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     modeLabel.textContent = "Priority";
     const modeSelect = document.createElement("select");
     for (const [value, label] of [
-        ["uniform", "Uniform (50)"],
-        ["random", "Random (0-99)"],
+        ["uniform", "Uniform (50 / 50)"],
+        ["asymmetric", "Asymmetric (90 / 10)"],
     ] as const) {
         const option = document.createElement("option");
         option.value = value;
@@ -124,46 +134,6 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     });
     modeRow.append(modeLabel, modeSelect);
     root.appendChild(modeRow);
-
-    const gateRow = document.createElement("div");
-    gateRow.className = "control-row";
-    const gateLabel = document.createElement("label");
-    gateLabel.textContent = "Gate width";
-    const gateInput = document.createElement("input");
-    gateInput.type = "range";
-    gateInput.min = "20";
-    gateInput.max = "260";
-    gateInput.step = "5";
-    gateInput.value = String(scene.gateWidth);
-    const gateValue = document.createElement("span");
-    gateValue.textContent = `${gateInput.value} px`;
-    gateInput.addEventListener("input", () => {
-        scene.gateWidth = Number(gateInput.value);
-        gateValue.textContent = `${gateInput.value} px`;
-        scene.reset();
-    });
-    gateRow.append(gateLabel, gateInput, gateValue);
-    root.appendChild(gateRow);
-
-    const agentsRow = document.createElement("div");
-    agentsRow.className = "control-row";
-    const agentsLabel = document.createElement("label");
-    agentsLabel.textContent = "Agents";
-    const agentsInput = document.createElement("input");
-    agentsInput.type = "range";
-    agentsInput.min = "20";
-    agentsInput.max = "200";
-    agentsInput.step = "10";
-    agentsInput.value = String(scene.agentCount);
-    const agentsValue = document.createElement("span");
-    agentsValue.textContent = agentsInput.value;
-    agentsInput.addEventListener("input", () => {
-        scene.agentCount = Number(agentsInput.value);
-        agentsValue.textContent = agentsInput.value;
-        scene.reset();
-    });
-    agentsRow.append(agentsLabel, agentsInput, agentsValue);
-    root.appendChild(agentsRow);
 
     const buttonRow = document.createElement("div");
     buttonRow.className = "control-row";
@@ -179,9 +149,11 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     const table = document.createElement("table");
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
-        ["through", "Agents through"],
+        ["priorityA", "Agent A priority (blue)"],
+        ["priorityB", "Agent B priority (red)"],
+        ["gap", "Distance A ↔ B"],
         ["elapsed", "Time (s)"],
-        ["cleared", "Cleared in"],
+        ["swapped", "Swapped in"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -199,13 +171,17 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Синий = низкий приоритет (уступает), оранжевый = высокий (проталкивается). ' +
-        'Часть примеров к статье. ' +
+        'A (голубой) и B (красный) меняются местами через ворота, в которые физически помещается только один ' +
+        '(та же математика 1.6 м / 0.5 м радиуса, что в Effective Width). При Uniform у обоих avoidancePriority = 50 — ' +
+        'отталкивание симметрично в буквальном смысле, никакой случайности в формуле нет, поэтому оба честно тормозят ' +
+        'друг перед другом у ворот и подолгу топчутся на месте: "достаточно умные, чтобы не столкнуться, но недостаточно ' +
+        'наглые, чтобы пройти первым". При Asymmetric (90 / 10) один буквально продавливает проход, а другой уступает — ' +
+        'и обмен местами происходит сразу. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
-        '<a href="priority-standoff.html" style="color:#4fc3f7">Priority Standoff</a> &middot; ' +
         '<a href="effective-width.html" style="color:#4fc3f7">Effective Width</a> &middot; ' +
+        '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
         '<a href="target-snapping.html" style="color:#4fc3f7">Target Snapping</a> &middot; ' +
@@ -218,10 +194,11 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     root.appendChild(hint);
 
     const tick = () => {
-        const total = scene.simulation.world.agents.length;
-        cells.through.textContent = `${scene.agentsThrough()} / ${total}`;
+        cells.priorityA.textContent = String(scene.agentA().avoidancePriority);
+        cells.priorityB.textContent = String(scene.agentB().avoidancePriority);
+        cells.gap.textContent = `${scene.gap().toFixed(0)} px`;
         cells.elapsed.textContent = scene.simulation.getElapsedSeconds().toFixed(1);
-        cells.cleared.textContent = scene.clearedAt !== null ? `${scene.clearedAt.toFixed(1)} s` : "-";
+        cells.swapped.textContent = scene.clearedAt !== null ? `${scene.clearedAt.toFixed(1)} s` : "still negotiating…";
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -231,10 +208,10 @@ const gameRoot = document.getElementById("game-root");
 const controlRoot = document.getElementById("control-panel");
 
 if (!gameRoot || !controlRoot) {
-    throw new Error("avoidance-priority: expected #game-root and #control-panel in examples/avoidance-priority.html");
+    throw new Error("priority-standoff: expected #game-root and #control-panel in examples/priority-standoff.html");
 }
 
-const scene = new AvoidancePriorityScene();
+const scene = new PriorityStandoffScene();
 const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: gameRoot,
