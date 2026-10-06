@@ -4,7 +4,13 @@ import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
 import { AgentRenderer } from "@/rendering/AgentRenderer";
 import { DEFAULT_AGENT_RADIUS } from "@/simulation/Agent";
-import { configureNarrowGate, DEFAULT_NARROW_GATE_OPTIONS } from "@/experiments/NarrowGateExperiment";
+import {
+    configureEffectiveWidth,
+    DEFAULT_EFFECTIVE_WIDTH_OPTIONS,
+    GATE_WIDTH_M,
+    GATE_WIDTH_PX,
+    METERS_TO_PX,
+} from "@/experiments/EffectiveWidthExperiment";
 
 const WORLD_WIDTH = 900;
 const WORLD_HEIGHT = 500;
@@ -12,17 +18,20 @@ const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
 const THROUGH_ZONE_X = WORLD_WIDTH - 70;
 
-class NarrowGateScene extends Phaser.Scene {
+const AGENT_RADIUS_M = DEFAULT_AGENT_RADIUS / METERS_TO_PX;
+const EFFECTIVE_WIDTH_M = GATE_WIDTH_M - 2 * AGENT_RADIUS_M;
+
+class EffectiveWidthScene extends Phaser.Scene {
     simulation!: Simulation;
-    gateWidth = DEFAULT_NARROW_GATE_OPTIONS.gateWidth;
-    agentCount = DEFAULT_NARROW_GATE_OPTIONS.agentCount;
+    agentCount = DEFAULT_EFFECTIVE_WIDTH_OPTIONS.agentCount;
+    clearedAt: number | null = null;
 
     private agentRenderer!: AgentRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
 
     constructor() {
-        super("narrow-gate");
+        super("effective-width");
     }
 
     create(): void {
@@ -46,13 +55,15 @@ class NarrowGateScene extends Phaser.Scene {
         this.agentRenderer.render(this.simulation.world.agents);
         this.drawObstacles();
         this.drawTarget();
+
+        if (this.clearedAt === null && this.agentsThrough() === this.simulation.world.agents.length) {
+            this.clearedAt = this.simulation.getElapsedSeconds();
+        }
     }
 
     reset(): void {
-        configureNarrowGate(this.simulation, {
-            gateWidth: this.gateWidth,
-            agentCount: this.agentCount,
-        });
+        this.clearedAt = null;
+        configureEffectiveWidth(this.simulation, { agentCount: this.agentCount });
     }
 
     agentsThrough(): number {
@@ -75,51 +86,34 @@ class NarrowGateScene extends Phaser.Scene {
     }
 }
 
-function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
+function buildControls(root: HTMLElement, scene: EffectiveWidthScene): void {
     root.innerHTML = "";
 
     const heading = document.createElement("h2");
-    heading.textContent = "Narrow Gate";
+    heading.textContent = "Effective Width";
     root.appendChild(heading);
-
-    const gateRow = document.createElement("div");
-    gateRow.className = "control-row";
-    const gateLabel = document.createElement("label");
-    gateLabel.textContent = "Gate width";
-    const gateInput = document.createElement("input");
-    gateInput.type = "range";
-    gateInput.min = "20";
-    gateInput.max = "260";
-    gateInput.step = "5";
-    gateInput.value = String(scene.gateWidth);
-    const gateValue = document.createElement("span");
-    gateValue.textContent = `${gateInput.value} px`;
-    gateInput.addEventListener("input", () => {
-        scene.gateWidth = Number(gateInput.value);
-        gateValue.textContent = `${gateInput.value} px`;
-        scene.reset();
-    });
-    gateRow.append(gateLabel, gateInput, gateValue);
-    root.appendChild(gateRow);
 
     const agentsRow = document.createElement("div");
     agentsRow.className = "control-row";
     const agentsLabel = document.createElement("label");
     agentsLabel.textContent = "Agents";
-    const agentsInput = document.createElement("input");
-    agentsInput.type = "range";
-    agentsInput.min = "10";
-    agentsInput.max = "200";
-    agentsInput.step = "10";
-    agentsInput.value = String(scene.agentCount);
-    const agentsValue = document.createElement("span");
-    agentsValue.textContent = agentsInput.value;
-    agentsInput.addEventListener("input", () => {
-        scene.agentCount = Number(agentsInput.value);
-        agentsValue.textContent = agentsInput.value;
+    const agentsSelect = document.createElement("select");
+    for (const [value, label] of [
+        ["1", "1 — проходит свободно"],
+        ["2", "2 — уже мешают друг другу"],
+        ["200", "200 — затор"],
+    ] as const) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        agentsSelect.appendChild(option);
+    }
+    agentsSelect.value = String(scene.agentCount);
+    agentsSelect.addEventListener("change", () => {
+        scene.agentCount = Number(agentsSelect.value);
         scene.reset();
     });
-    agentsRow.append(agentsLabel, agentsInput, agentsValue);
+    agentsRow.append(agentsLabel, agentsSelect);
     root.appendChild(agentsRow);
 
     const buttonRow = document.createElement("div");
@@ -136,9 +130,12 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     const table = document.createElement("table");
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
+        ["visual", "Visual gate width"],
+        ["radius", "Agent radius"],
+        ["effective", "Effective width (center)"],
         ["through", "Agents through"],
         ["elapsed", "Time (s)"],
-        ["effective", "Effective width (center)"],
+        ["cleared", "Cleared in"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -146,21 +143,28 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
         const th = document.createElement("td");
         th.textContent = label;
         const td = document.createElement("td");
-        td.textContent = "0";
+        td.textContent = "-";
         cells[key] = td;
         tr.append(th, td);
         table.appendChild(tr);
     }
     root.appendChild(table);
+    cells.visual.textContent = `${GATE_WIDTH_M.toFixed(1)} m (${GATE_WIDTH_PX.toFixed(1)} px)`;
+    cells.radius.textContent = `${AGENT_RADIUS_M.toFixed(1)} m (${DEFAULT_AGENT_RADIUS} px)`;
+    cells.effective.textContent =
+        `${EFFECTIVE_WIDTH_M.toFixed(1)} m — NavMesh: path exists (${EFFECTIVE_WIDTH_M.toFixed(1)} m > 0)`;
 
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Ворота выглядят шире, чем они есть для центра агента: NavMesh отступает от стен на его радиус (см. "Effective width" ниже). ' +
-        'Часть примеров к статье. ' +
+        'Ворота здесь зафиксированы на числах из статьи: 1.6 м в ширину при Agent Radius 0.5 м — на вид в них помещаются ' +
+        'трое NPC, а для центра агента остаётся всего 0.6 м. NavMesh честно считает, что путь существует (0.6 м &gt; 0), ' +
+        'но переключи Agents: 1 агент проходит свободно, 2 уже мешают друг другу на входе, а 200 — затор, в котором ' +
+        'локальному движению не хватает места провести даже пару соседей одновременно, хотя путь на сетке один и тот же. ' +
+        'Ширину ворот можно покрутить в Narrow Gate рядом. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
-        '<a href="effective-width.html" style="color:#4fc3f7">Effective Width</a> &middot; ' +
+        '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="local-avoidance.html" style="color:#4fc3f7">Local Avoidance</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
@@ -171,10 +175,10 @@ function buildControls(root: HTMLElement, scene: NarrowGateScene): void {
     root.appendChild(hint);
 
     const tick = () => {
-        cells.through.textContent = String(scene.agentsThrough());
+        const total = scene.simulation.world.agents.length;
+        cells.through.textContent = `${scene.agentsThrough()} / ${total}`;
         cells.elapsed.textContent = scene.simulation.getElapsedSeconds().toFixed(1);
-        const effective = Math.max(0, scene.gateWidth - 2 * DEFAULT_AGENT_RADIUS);
-        cells.effective.textContent = `${effective} px (visual ${scene.gateWidth} px − 2×radius ${DEFAULT_AGENT_RADIUS} px)`;
+        cells.cleared.textContent = scene.clearedAt !== null ? `${scene.clearedAt.toFixed(1)} s` : "-";
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -184,10 +188,10 @@ const gameRoot = document.getElementById("game-root");
 const controlRoot = document.getElementById("control-panel");
 
 if (!gameRoot || !controlRoot) {
-    throw new Error("narrow-gate: expected #game-root and #control-panel in examples/narrow-gate.html");
+    throw new Error("effective-width: expected #game-root and #control-panel in examples/effective-width.html");
 }
 
-const scene = new NarrowGateScene();
+const scene = new EffectiveWidthScene();
 const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: gameRoot,

@@ -17,6 +17,7 @@ export default defineConfig({
                 main: path.resolve(__dirname, "index.html"),
                 sandbox: path.resolve(__dirname, "examples/sandbox.html"),
                 narrowGate: path.resolve(__dirname, "examples/narrow-gate.html"),
+                effectiveWidth: path.resolve(__dirname, "examples/effective-width.html"),
                 avoidancePriority: path.resolve(__dirname, "examples/avoidance-priority.html"),
                 localAvoidance: path.resolve(__dirname, "examples/local-avoidance.html"),
                 pathfinding: path.resolve(__dirname, "examples/pathfinding.html"),

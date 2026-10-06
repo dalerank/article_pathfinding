@@ -192,6 +192,7 @@ function buildControls(root: HTMLElement, scene: LocalAvoidanceScene): void {
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
+        '<a href="effective-width.html" style="color:#4fc3f7">Effective Width</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
