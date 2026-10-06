@@ -291,7 +291,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /** Pushes a circle out of an axis-aligned rectangle it would otherwise penetrate. */
-function resolveCircleRectCollision(position: Vec2, radius: number, rect: Obstacle): Vec2 {
+export function resolveCircleRectCollision(position: Vec2, radius: number, rect: Obstacle): Vec2 {
     const closestX = clamp(position.x, rect.x, rect.x + rect.width);
     const closestY = clamp(position.y, rect.y, rect.y + rect.height);
     const dx = position.x - closestX;

@@ -46,11 +46,22 @@ export function configureEffectiveWidth(simulation: Simulation, options: Partial
     simulation.setTarget({ x: world.width - 40, y: midY });
     simulation.resetClock();
 
-    const spawnMaxX = Math.max(30, midX - WALL_THICKNESS / 2 - 30);
-    for (let i = 0; i < opts.agentCount; i++) {
-        const x = 15 + Math.random() * (spawnMaxX - 15);
-        const y = 15 + Math.random() * (world.height - 30);
-        simulation.addAgent({ x, y });
+    // 1 and 2 are spawned on a fixed line (instead of at random) so the point of the
+    // demo isn't left to chance: with 2, both agents are the same distance from the
+    // gate and arrive at the pinch point at the same time, forcing the contest the
+    // article describes instead of one of them sneaking through first by luck.
+    if (opts.agentCount === 1) {
+        simulation.addAgent({ x: 20, y: midY });
+    } else if (opts.agentCount === 2) {
+        simulation.addAgent({ x: 20, y: midY - 36 });
+        simulation.addAgent({ x: 20, y: midY + 36 });
+    } else {
+        const spawnMaxX = Math.max(30, midX - WALL_THICKNESS / 2 - 30);
+        for (let i = 0; i < opts.agentCount; i++) {
+            const x = 15 + Math.random() * (spawnMaxX - 15);
+            const y = 15 + Math.random() * (world.height - 30);
+            simulation.addAgent({ x, y });
+        }
     }
 }
 

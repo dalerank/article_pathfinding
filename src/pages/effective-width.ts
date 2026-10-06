@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { Simulation } from "@/simulation/Simulation";
+import { Simulation, resolveCircleRectCollision } from "@/simulation/Simulation";
 import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
 import { AgentRenderer } from "@/rendering/AgentRenderer";
@@ -17,6 +17,9 @@ const WORLD_HEIGHT = 500;
 const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
 const THROUGH_ZONE_X = WORLD_WIDTH - 70;
+const AGENT_COLOR = 0x4fc3f7;
+const BLOCKED_COLOR = 0xff7043;
+const COLLISION_ITERATIONS = 4;
 
 const AGENT_RADIUS_M = DEFAULT_AGENT_RADIUS / METERS_TO_PX;
 const EFFECTIVE_WIDTH_M = GATE_WIDTH_M - 2 * AGENT_RADIUS_M;
@@ -25,10 +28,12 @@ class EffectiveWidthScene extends Phaser.Scene {
     simulation!: Simulation;
     agentCount = DEFAULT_EFFECTIVE_WIDTH_OPTIONS.agentCount;
     clearedAt: number | null = null;
+    blockedCount = 0;
 
     private agentRenderer!: AgentRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
+    private blockedIds = new Set<number>();
 
     constructor() {
         super("effective-width");
@@ -52,12 +57,60 @@ class EffectiveWidthScene extends Phaser.Scene {
 
     update(_time: number, delta: number): void {
         this.simulation.update(delta);
-        this.agentRenderer.render(this.simulation.world.agents);
+        this.resolveAgentCollisions();
+        this.blockedCount = this.blockedIds.size;
+        this.agentRenderer.render(this.simulation.world.agents, (agent) =>
+            this.blockedIds.has(agent.id) ? BLOCKED_COLOR : AGENT_COLOR,
+        );
         this.drawObstacles();
         this.drawTarget();
 
         if (this.clearedAt === null && this.agentsThrough() === this.simulation.world.agents.length) {
             this.clearedAt = this.simulation.getElapsedSeconds();
+        }
+    }
+
+    /**
+     * The shared Simulation only pushes agents apart with a soft steering nudge (see
+     * LocalAvoidance.ts) — fine for open crowds, but at this gate's 0.6 m effective width
+     * two agent centers can be "avoiding" each other and still end up both inside that
+     * band, i.e. visibly overlapping instead of queueing. This resolves agent-agent
+     * overlap as a hard constraint (local to this page only) so "two agents already
+     * interfere" is something you actually see, not something you have to take on faith.
+     */
+    private resolveAgentCollisions(): void {
+        const agents = this.simulation.world.agents;
+        const obstacles = this.simulation.world.obstacles;
+        this.blockedIds.clear();
+
+        for (let iteration = 0; iteration < COLLISION_ITERATIONS; iteration++) {
+            for (let i = 0; i < agents.length; i++) {
+                for (let j = i + 1; j < agents.length; j++) {
+                    const a = agents[i];
+                    const b = agents[j];
+                    const dx = b.position.x - a.position.x;
+                    const dy = b.position.y - a.position.y;
+                    const minDist = a.radius + b.radius;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist >= minDist) continue;
+
+                    this.blockedIds.add(a.id);
+                    this.blockedIds.add(b.id);
+
+                    if (dist === 0) dist = 0.01;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const overlap = (minDist - dist) / 2;
+                    a.position = { x: a.position.x - nx * overlap, y: a.position.y - ny * overlap };
+                    b.position = { x: b.position.x + nx * overlap, y: b.position.y + ny * overlap };
+                }
+            }
+
+            for (const agent of agents) {
+                for (const obstacle of obstacles) {
+                    agent.position = resolveCircleRectCollision(agent.position, agent.radius, obstacle);
+                }
+            }
         }
     }
 
@@ -134,6 +187,7 @@ function buildControls(root: HTMLElement, scene: EffectiveWidthScene): void {
         ["radius", "Agent radius"],
         ["effective", "Effective width (center)"],
         ["through", "Agents through"],
+        ["blocked", "Blocked now (overlapping)"],
         ["elapsed", "Time (s)"],
         ["cleared", "Cleared in"],
     ];
@@ -159,8 +213,9 @@ function buildControls(root: HTMLElement, scene: EffectiveWidthScene): void {
     hint.innerHTML =
         'Ворота здесь зафиксированы на числах из статьи: 1.6 м в ширину при Agent Radius 0.5 м — на вид в них помещаются ' +
         'трое NPC, а для центра агента остаётся всего 0.6 м. NavMesh честно считает, что путь существует (0.6 м &gt; 0), ' +
-        'но переключи Agents: 1 агент проходит свободно, 2 уже мешают друг другу на входе, а 200 — затор, в котором ' +
-        'локальному движению не хватает места провести даже пару соседей одновременно, хотя путь на сетке один и тот же. ' +
+        'но переключи Agents: 1 агент проходит свободно, 2 выходят к воротам одновременно и буквально упираются друг в ' +
+        'друга (оранжевый цвет и счётчик "Blocked now" ниже), а 200 — затор, в котором локальному движению не хватает ' +
+        'места провести даже пару соседей одновременно, хотя путь на сетке один и тот же. ' +
         'Ширину ворот можно покрутить в Narrow Gate рядом. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
@@ -177,6 +232,7 @@ function buildControls(root: HTMLElement, scene: EffectiveWidthScene): void {
     const tick = () => {
         const total = scene.simulation.world.agents.length;
         cells.through.textContent = `${scene.agentsThrough()} / ${total}`;
+        cells.blocked.textContent = String(scene.blockedCount);
         cells.elapsed.textContent = scene.simulation.getElapsedSeconds().toFixed(1);
         cells.cleared.textContent = scene.clearedAt !== null ? `${scene.clearedAt.toFixed(1)} s` : "-";
         requestAnimationFrame(tick);
