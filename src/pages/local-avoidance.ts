@@ -195,6 +195,7 @@ function buildControls(root: HTMLElement, scene: LocalAvoidanceScene): void {
         '<a href="effective-width.html" style="color:#4fc3f7">Effective Width</a> &middot; ' +
         '<a href="avoidance-priority.html" style="color:#4fc3f7">Avoidance Priority</a> &middot; ' +
         '<a href="pathfinding.html" style="color:#4fc3f7">A* Pathfinding</a> &middot; ' +
+        '<a href="target-snapping.html" style="color:#4fc3f7">Target Snapping</a> &middot; ' +
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
         '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
         '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +

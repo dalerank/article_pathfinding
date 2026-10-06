@@ -10,6 +10,13 @@ import { cellAt, cellCenter, cellIndex, worldToCell } from "./NavMeshQuery";
 export interface AStarOptions {
     diagonal: boolean;
     heuristic: "manhattan" | "euclidean";
+    /**
+     * Mirrors Unity's NavMeshPathStatus.PathPartial: when the target can't be reached
+     * (its cell is walkable but disconnected from start's region), return the path to
+     * whichever explored cell ended up closest to it instead of an empty path. Default
+     * false, so every existing caller keeps returning [] exactly as before.
+     */
+    partial?: boolean;
 }
 
 export const DEFAULT_ASTAR_OPTIONS: AStarOptions = { diagonal: true, heuristic: "euclidean" };
@@ -41,17 +48,20 @@ export function findPath(
     const targetIndex = cellIndex(navMesh, targetCell.x, targetCell.y);
     if (cellIndex(navMesh, startCell.x, startCell.y) === targetIndex) return [target];
 
-    const open: NodeRecord[] = [
-        {
-            col: startCell.x,
-            row: startCell.y,
-            g: 0,
-            f: heuristic(startCell.x, startCell.y, targetCell.x, targetCell.y, options.heuristic),
-            parent: null,
-        },
-    ];
+    const startRecord: NodeRecord = {
+        col: startCell.x,
+        row: startCell.y,
+        g: 0,
+        f: heuristic(startCell.x, startCell.y, targetCell.x, targetCell.y, options.heuristic),
+        parent: null,
+    };
+    const open: NodeRecord[] = [startRecord];
     const bestG = new Map<number, number>([[cellIndex(navMesh, startCell.x, startCell.y), 0]]);
     const closed = new Set<number>();
+
+    // Tracks the explored node closest to the target so far, for `options.partial`.
+    let bestPartial = startRecord;
+    let bestPartialH = heuristic(startCell.x, startCell.y, targetCell.x, targetCell.y, options.heuristic);
 
     while (open.length > 0) {
         let bestIdx = 0;
@@ -66,6 +76,12 @@ export function findPath(
 
         if (currentIndex === targetIndex) {
             return reconstructPath(navMesh, current, target);
+        }
+
+        const currentH = heuristic(current.col, current.row, targetCell.x, targetCell.y, options.heuristic);
+        if (currentH < bestPartialH) {
+            bestPartialH = currentH;
+            bestPartial = current;
         }
 
         for (const neighbor of neighbors(navMesh, current, options.diagonal)) {
@@ -85,6 +101,10 @@ export function findPath(
             });
             debug?.openSet.push(cellCenter(navMesh, { x: neighbor.col, y: neighbor.row }));
         }
+    }
+
+    if (options.partial && bestPartial !== startRecord) {
+        return reconstructPath(navMesh, bestPartial, cellCenter(navMesh, { x: bestPartial.col, y: bestPartial.row }));
     }
 
     return [];

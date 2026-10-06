@@ -335,6 +335,7 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
         'Клик — новая цель. Красный тон вокруг стен — недоступная из-за радиуса агента зона (NavMesh &ne; видимый пол). ' +
         'Кликнешь в стену — цель не пропадёт молча (как SetDestination), а притянется к ближайшей проходимой точке ' +
         '(NavMesh.SamplePosition), см. "Last click" ниже. Синий/серый — open/closed set последнего поиска. В Hierarchical A* жёлтым подсвечены регионы грубого пути. ' +
+        'Два отдельных случая «NPC застрял» (мимо NavMesh и недостижимая, но валидная цель) разобраны подробнее в Target Snapping. ' +
         'Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
@@ -345,7 +346,8 @@ function buildControls(root: HTMLElement, scene: PathfindingScene): void {
         '<a href="flow-field.html" style="color:#4fc3f7">A* vs Flow Field</a> &middot; ' +
         '<a href="dynamic-obstacles.html" style="color:#4fc3f7">Dynamic Obstacles</a> &middot; ' +
         '<a href="link-cost.html" style="color:#4fc3f7">Link Cost Override</a> &middot; ' +
-        '<a href="path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a>';
+        '<a href="path-request-budget.html" style="color:#4fc3f7">Path Request Budget</a> &middot; ' +
+        '<a href="target-snapping.html" style="color:#4fc3f7">Target Snapping</a>';
     root.appendChild(hint);
 
     const tick = () => {

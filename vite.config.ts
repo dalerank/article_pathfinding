@@ -21,6 +21,7 @@ export default defineConfig({
                 avoidancePriority: path.resolve(__dirname, "examples/avoidance-priority.html"),
                 localAvoidance: path.resolve(__dirname, "examples/local-avoidance.html"),
                 pathfinding: path.resolve(__dirname, "examples/pathfinding.html"),
+                targetSnapping: path.resolve(__dirname, "examples/target-snapping.html"),
                 flowField: path.resolve(__dirname, "examples/flow-field.html"),
                 dynamicObstacles: path.resolve(__dirname, "examples/dynamic-obstacles.html"),
                 linkCost: path.resolve(__dirname, "examples/link-cost.html"),
