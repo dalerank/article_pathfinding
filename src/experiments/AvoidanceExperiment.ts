@@ -60,10 +60,7 @@ export interface AvoidancePriorityOptions {
 }
 
 export const DEFAULT_AVOIDANCE_PRIORITY_OPTIONS: AvoidancePriorityOptions = {
-    // Single-file width (article/Effective Width math: 1.6 m gate, 0.5 m radius -> ~0.6 m
-    // left for the center). Wide enough for ~2-3 agents abreast and priority stops mattering
-    // — nobody has to take turns, so Uniform and Random clear at about the same rate.
-    gateWidth: 26,
+    gateWidth: 60,
     agentCount: 80,
     mode: "uniform",
 };

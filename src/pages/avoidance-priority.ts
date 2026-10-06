@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { Simulation, resolveCircleRectCollision } from "@/simulation/Simulation";
+import { Simulation } from "@/simulation/Simulation";
 import { createWorld } from "@/simulation/World";
 import { createTarget } from "@/simulation/Target";
 import type { Agent } from "@/simulation/Agent";
@@ -15,7 +15,16 @@ const WORLD_HEIGHT = 500;
 const OBSTACLE_COLOR = 0x3a4152;
 const TARGET_COLOR = 0xef5350;
 const THROUGH_ZONE_X = WORLD_WIDTH - 70;
-const COLLISION_ITERATIONS = 4;
+const THROTTLED_COLOR = 0x5c6472;
+
+/** Must match NarrowGateExperiment's DEFAULT_NARROW_GATE_OPTIONS.wallThickness (configureAvoidancePriority doesn't override it). */
+const WALL_THICKNESS = 40;
+/** How close to the gate mouth counts as "contesting" it. */
+const ZONE_WIDTH = 16;
+/** Minimum avoidancePriority gap for one contester to be a clear winner — below this it's a tie. */
+const GAP_THRESHOLD = 5;
+/** Non-winners (and anyone behind a current occupant) crawl at this fraction of their speed — not frozen solid, so ties among equals still drift and resolve eventually instead of deadlocking forever. */
+const THROTTLE = 0.15;
 
 /** Blue (low priority, yields) -> orange (high priority, bulldozes through). Uniform mode collapses to one shade. */
 function colorForPriority(agent: Agent): number {
@@ -32,12 +41,11 @@ class AvoidancePriorityScene extends Phaser.Scene {
     agentCount = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.agentCount;
     gateWidth = DEFAULT_AVOIDANCE_PRIORITY_OPTIONS.gateWidth;
     clearedAt: number | null = null;
-    blockedCount = 0;
+    throttledCount = 0;
 
     private agentRenderer!: AgentRenderer;
     private obstacleGraphics!: Phaser.GameObjects.Graphics;
     private targetGraphics!: Phaser.GameObjects.Graphics;
-    private blockedIds = new Set<number>();
 
     constructor() {
         super("avoidance-priority");
@@ -60,10 +68,28 @@ class AvoidancePriorityScene extends Phaser.Scene {
     }
 
     update(_time: number, delta: number): void {
+        const throttled = this.decideThrottled();
+        const before = new Map(this.simulation.world.agents.map((a) => [a.id, { ...a.position }]));
+
         this.simulation.update(delta);
-        this.resolveAgentCollisions();
-        this.blockedCount = this.blockedIds.size;
-        this.agentRenderer.render(this.simulation.world.agents, colorForPriority);
+
+        for (const agent of this.simulation.world.agents) {
+            if (!throttled.has(agent.id)) continue;
+            const prev = before.get(agent.id)!;
+            // Scale the actual displacement, not maxSpeed before the fact — maxSpeed feeds into
+            // the desired/avoidance blend, so a "throttled" agent whose avoidance push partly
+            // cancels its desired direction wouldn't reliably slow down by the same fraction.
+            // Correcting the resulting movement afterwards is unambiguous regardless of direction.
+            agent.position = {
+                x: prev.x + (agent.position.x - prev.x) * THROTTLE,
+                y: prev.y + (agent.position.y - prev.y) * THROTTLE,
+            };
+        }
+
+        this.throttledCount = throttled.size;
+        this.agentRenderer.render(this.simulation.world.agents, (agent) =>
+            throttled.has(agent.id) ? THROTTLED_COLOR : colorForPriority(agent),
+        );
         this.drawObstacles();
         this.drawTarget();
 
@@ -73,54 +99,44 @@ class AvoidancePriorityScene extends Phaser.Scene {
     }
 
     /**
-     * The shared Simulation only nudges agents apart with a soft steering push (see
-     * LocalAvoidance.ts) — at a wide-open gate that's fine, but at this single-file width
-     * (see Effective Width) it lets agents partially overlap and slip through together
-     * regardless of priority, which is exactly why Uniform and Random used to clear at
-     * the same rate. This resolves agent-agent overlap as a hard constraint (local to
-     * this page) so priority actually decides who gets through the gate first.
+     * The shared Simulation's own avoidance is a soft steering nudge (see LocalAvoidance.ts):
+     * it biases direction by priority, but its magnitude always maxes out at full speed, so it
+     * can shove an agent sideways but can't make it patiently wait its turn — which is exactly
+     * why Uniform and Random used to clear this gate at about the same rate. This adds an
+     * explicit admission rule right at the gate mouth (local to this page): at most one agent
+     * is ever inside the gate itself, and whoever's waiting with no clearly higher-priority
+     * rival (gap >= GAP_THRESHOLD) goes next; everyone else just crawls instead of jostling.
+     * Uniform means every rival is tied (gap 0), so there's rarely a decisive winner — the
+     * throttle isn't a hard freeze so position noise still breaks ties eventually, but slowly.
+     * Random almost always produces a clear winner, so the queue flows.
      */
-    private resolveAgentCollisions(): void {
+    private decideThrottled(): Set<number> {
         const agents = this.simulation.world.agents;
-        const obstacles = this.simulation.world.obstacles;
-        this.blockedIds.clear();
+        const midX = this.simulation.world.width / 2;
+        const corridorLeft = midX - WALL_THICKNESS / 2;
+        const corridorRight = midX + WALL_THICKNESS / 2;
+        const zoneLeft = corridorLeft - ZONE_WIDTH;
 
-        for (let iteration = 0; iteration < COLLISION_ITERATIONS; iteration++) {
-            for (let i = 0; i < agents.length; i++) {
-                for (let j = i + 1; j < agents.length; j++) {
-                    const a = agents[i];
-                    const b = agents[j];
-                    const dx = b.position.x - a.position.x;
-                    const dy = b.position.y - a.position.y;
-                    const minDist = a.radius + b.radius;
-                    let dist = Math.hypot(dx, dy);
-                    if (dist >= minDist) continue;
+        const throttled = new Set<number>();
+        const occupant = agents.find((a) => a.position.x >= corridorLeft && a.position.x <= corridorRight);
+        const zoneAgents = agents.filter((a) => a.position.x >= zoneLeft && a.position.x < corridorLeft);
 
-                    this.blockedIds.add(a.id);
-                    this.blockedIds.add(b.id);
-
-                    if (dist === 0) dist = 0.01;
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    const overlap = minDist - dist;
-
-                    // Same priority semantics as LocalAvoidance's steering: the higher-priority
-                    // agent gives up less ground. Equal priority (Uniform) reduces to the old 50/50 split.
-                    const totalPriority = a.avoidancePriority + b.avoidancePriority || 1;
-                    const aShare = b.avoidancePriority / totalPriority;
-                    const bShare = a.avoidancePriority / totalPriority;
-
-                    a.position = { x: a.position.x - nx * overlap * aShare, y: a.position.y - ny * overlap * aShare };
-                    b.position = { x: b.position.x + nx * overlap * bShare, y: b.position.y + ny * overlap * bShare };
-                }
-            }
-
-            for (const agent of agents) {
-                for (const obstacle of obstacles) {
-                    agent.position = resolveCircleRectCollision(agent.position, agent.radius, obstacle);
-                }
-            }
+        if (occupant) {
+            for (const a of zoneAgents) throttled.add(a.id);
+            return throttled;
         }
+
+        if (zoneAgents.length === 0) return throttled;
+        const sorted = [...zoneAgents].sort((a, b) => b.avoidancePriority - a.avoidancePriority);
+        const top = sorted[0];
+        const second = sorted[1];
+        const decisive = !second || top.avoidancePriority - second.avoidancePriority >= GAP_THRESHOLD;
+
+        for (const a of zoneAgents) {
+            if (decisive && a === top) continue;
+            throttled.add(a.id);
+        }
+        return throttled;
     }
 
     reset(): void {
@@ -236,7 +252,7 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
         ["through", "Agents through"],
-        ["blocked", "Blocked now (overlapping)"],
+        ["blocked", "Waiting at the gate now"],
         ["elapsed", "Time (s)"],
         ["cleared", "Cleared in"],
     ];
@@ -256,11 +272,12 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     const hint = document.createElement("p");
     hint.style.color = "#8b93a3";
     hint.innerHTML =
-        'Синий = низкий приоритет (уступает), оранжевый = высокий (проталкивается). Ворота здесь намеренно однополосные ' +
-        '(как в Effective Width) — при Uniform всем достаётся ровно 50, отталкивание буквально симметрично, и толпа ' +
-        'подолгу топчется перед проходом, пропуская по одному крайне редко. При Random у каждого свой приоритет 0-99: ' +
-        'более "наглые" агенты естественным образом формируют очередь и проходят почти без запинки — сравните Cleared in ' +
-        'на одном и том же количестве агентов. Часть примеров к статье. ' +
+        'Синий = низкий приоритет (уступает), оранжевый = высокий (проталкивается), серый = сейчас ждёт своей очереди ' +
+        'прямо у ворот. В сами ворота одновременно помещается только один — так и должно быть видно глазами. При Uniform ' +
+        'все 50, явного победителя почти никогда нет, и очередь у входа подолгу топчется серой массой, пропуская по одному ' +
+        'крайне редко. При Random почти всегда находится однозначно самый "наглый" — и он проходит почти без ожидания, ' +
+        'очередь течёт. При 80 агентах полный Cleared in занимает пару-тройку минут реального времени — для разницы ' +
+        'достаточно смотреть на серую массу у ворот первые 20-30 секунд, не дожидаясь полного прохода. Часть примеров к статье. ' +
         '<a href="../index.html" style="color:#4fc3f7">&larr; Все примеры</a> &middot; ' +
         '<a href="sandbox.html" style="color:#4fc3f7">Свободный sandbox</a> &middot; ' +
         '<a href="narrow-gate.html" style="color:#4fc3f7">Narrow Gate</a> &middot; ' +
@@ -280,7 +297,7 @@ function buildControls(root: HTMLElement, scene: AvoidancePriorityScene): void {
     const tick = () => {
         const total = scene.simulation.world.agents.length;
         cells.through.textContent = `${scene.agentsThrough()} / ${total}`;
-        cells.blocked.textContent = String(scene.blockedCount);
+        cells.blocked.textContent = String(scene.throttledCount);
         cells.elapsed.textContent = scene.simulation.getElapsedSeconds().toFixed(1);
         cells.cleared.textContent = scene.clearedAt !== null ? `${scene.clearedAt.toFixed(1)} s` : "-";
         requestAnimationFrame(tick);
