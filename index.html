@@ -261,6 +261,39 @@
             </a>
         </div>
 
+        <h1 style="margin-top: 48px;">Don't Make NPC Smarter</h1>
+        <p class="lead">
+            Примеры к статье про то, почему игровой AI держат намеренно «глупым» — FSM/Behavior Tree/Utility AI
+            вместо RL/LLM, как наивная функция награды вырождается в отсиживание по углам или суицидальную
+            агрессию, и почему предсказуемость и ошибки NPC — часть дизайна, а не баг.
+        </p>
+
+        <div class="grid">
+            <a class="card" href="examples/npc-reward-hacking.html">
+                <span class="tag">Decision Making</span>
+                <h2>Reward Hacking</h2>
+                <p>Настоящий value iteration на 12 состояниях — крути веса награды и смотри, как policy целиком вырождается.</p>
+            </a>
+
+            <a class="card" href="examples/npc-chase-timeout.html">
+                <span class="tag">Design</span>
+                <h2>Chase Timeout</h2>
+                <p>FSM Patrol/Chase/Search с таймаутом поиска — выключи «никогда не сдаётся» и попробуй убежать от бесконечного преследования.</p>
+            </a>
+
+            <a class="card" href="examples/npc-fsm-vs-blackbox.html">
+                <span class="tag">Design</span>
+                <h2>FSM vs Black Box</h2>
+                <p>Один и тот же автомат на одном скриптованном таймлайне: слева видна причина каждого перехода, справа — только действие.</p>
+            </a>
+
+            <a class="card" href="examples/npc-imperfection.html">
+                <span class="tag">Design</span>
+                <h2>Deliberate Imperfection</h2>
+                <p>Шанс промаха и задержка реакции NPC против win rate игрока — честного «правильного» числа тут не существует.</p>
+            </a>
+        </div>
+
     </main>
 </body>
 </html>

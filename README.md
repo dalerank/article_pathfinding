@@ -15,6 +15,10 @@ It also hosts two further, independent example sets:
   ground check feels like a bug, and how games deliberately lie about timing at a
   platform edge (and about how early an input was pressed) to match what the player
   meant instead of what the simulation measured.
+- Why game AI is deliberately kept "dumb" (`docs/dont_make_npc_smarter.txt`): why FSM/BT/Utility
+  AI still beat RL/LLM for NPC decision-making, how a naive reward function degenerates into
+  turtling or suicidal aggression, why predictability and deliberate NPC mistakes are part of
+  the design, not a bug.
 
 ## Stack
 
@@ -50,6 +54,10 @@ npm run build
   Compensation.
 - `examples/coyote-*.html` — three coyote-time examples (`src/pages/coyote-*.ts`):
   Coyote Time, Jump Buffer, Forgiveness Tuning.
+- `examples/npc-*.html` — four dont_make_npc_smarter examples (`src/pages/npc-*.ts`): Reward
+  Hacking (live value iteration over a 12-state MDP), Chase Timeout (FSM give-up timer vs
+  infinite pursuit), FSM vs Black Box (same automaton, with/without visible transition reasons),
+  Deliberate Imperfection (NPC miss chance/reaction delay vs player win rate).
 - `src/navigation` — NavMesh grid, A*, Hierarchical A*, Flow Field.
 - `src/avoidance` — local avoidance and avoidance priority.
 - `src/simulation` — world, agents, fixed-timestep loop, path-request queue.
@@ -57,6 +65,8 @@ npm run build
   shared engine for the shooting examples.
 - `src/platformer` — coyote-time/jump-buffer forgiveness-window checks, shared by the
   coyote examples.
+- `src/npc` — reward MDP + value iteration, chase FSM, and duel resolution, shared by the
+  dont_make_npc_smarter examples.
 - `src/experiments` — world configuration for each NavMesh example.
 
 ## Status
