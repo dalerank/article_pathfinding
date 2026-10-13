@@ -23,7 +23,6 @@ const STEP_SEC = 0.5;
 
 const STATE_COLOR: Record<ChaseState, number> = { patrol: 0x8b93a3, chase: 0xef5350, search: 0xffca28 };
 const STATE_LABEL_RU: Record<ChaseState, string> = { patrol: "Patrol", chase: "Chase", search: "Search" };
-const BLACKBOX_COLOR = 0x5c6370;
 const INTRUDER_COLOR = 0x4fc3f7;
 const WALL_COLOR = 0x3a4152;
 
@@ -73,6 +72,10 @@ interface TimelineEntry {
     reason: string;
 }
 
+function randomPerceptionRadius(): number {
+    return Phaser.Math.FloatBetween(70, 240);
+}
+
 function buildTimeline(giveUpAfterSec: number, perceptionRadius: number): TimelineEntry[] {
     const entries: TimelineEntry[] = [];
     let state: ChaseState = "patrol";
@@ -100,10 +103,12 @@ class FsmVsBlackBoxScene extends Phaser.Scene {
     giveUpAfterSec = 7;
     neverGivesUp = false;
     perceptionRadius = 140;
+    blackBoxPerceptionRadius = randomPerceptionRadius();
     playing = true;
     timeSec = 0;
 
-    private timeline: TimelineEntry[] = buildTimeline(this.giveUpAfterSec, this.perceptionRadius);
+    private leftTimeline: TimelineEntry[] = buildTimeline(this.giveUpAfterSec, this.perceptionRadius);
+    private rightTimeline: TimelineEntry[] = buildTimeline(this.giveUpAfterSec, this.blackBoxPerceptionRadius);
 
     private arenaGraphics!: Phaser.GameObjects.Graphics;
     private actorGraphics!: Phaser.GameObjects.Graphics;
@@ -138,7 +143,13 @@ class FsmVsBlackBoxScene extends Phaser.Scene {
 
     rebuildTimeline(): void {
         const giveUpAfterSec = this.neverGivesUp ? Infinity : this.giveUpAfterSec;
-        this.timeline = buildTimeline(giveUpAfterSec, this.perceptionRadius);
+        this.leftTimeline = buildTimeline(giveUpAfterSec, this.perceptionRadius);
+        this.rightTimeline = buildTimeline(giveUpAfterSec, this.blackBoxPerceptionRadius);
+    }
+
+    rerollBlackBox(): void {
+        this.blackBoxPerceptionRadius = randomPerceptionRadius();
+        this.rebuildTimeline();
     }
 
     advance(dt: number): void {
@@ -159,9 +170,17 @@ class FsmVsBlackBoxScene extends Phaser.Scene {
         this.playing = !this.playing;
     }
 
-    currentEntry(): TimelineEntry {
-        const index = Math.min(this.timeline.length - 1, Math.round(this.timeSec / SIM_DT));
-        return this.timeline[index];
+    private entryAt(timeline: TimelineEntry[]): TimelineEntry {
+        const index = Math.min(timeline.length - 1, Math.round(this.timeSec / SIM_DT));
+        return timeline[index];
+    }
+
+    leftEntry(): TimelineEntry {
+        return this.entryAt(this.leftTimeline);
+    }
+
+    rightEntry(): TimelineEntry {
+        return this.entryAt(this.rightTimeline);
     }
 
     private drawArenas(): void {
@@ -202,17 +221,18 @@ class FsmVsBlackBoxScene extends Phaser.Scene {
     }
 
     private render(): void {
-        const entry = this.currentEntry();
+        const leftEntry = this.leftEntry();
+        const rightEntry = this.rightEntry();
         const intruderPos = intruderPositionAt(this.timeSec);
 
-        this.drawGraph(entry);
-        this.reasonText.setText([STATE_LABEL_RU[entry.state], entry.reason.replace(/&rarr;/g, "->")]);
-        this.reasonText.setColor(`#${STATE_COLOR[entry.state].toString(16).padStart(6, "0")}`);
+        this.drawGraph(leftEntry);
+        this.reasonText.setText([STATE_LABEL_RU[leftEntry.state], leftEntry.reason.replace(/&rarr;/g, "->")]);
+        this.reasonText.setColor(`#${STATE_COLOR[leftEntry.state].toString(16).padStart(6, "0")}`);
 
         this.actorGraphics.clear();
-        for (const [origin, isBlackBox] of [
-            [LEFT_ORIGIN, false],
-            [RIGHT_ORIGIN, true],
+        for (const [origin, entry, isBlackBox] of [
+            [LEFT_ORIGIN, leftEntry, false],
+            [RIGHT_ORIGIN, rightEntry, true],
         ] as const) {
             const postPos = { x: origin.x + POST.x, y: origin.y + POST.y };
             const bugPos = { x: origin.x + intruderPos.x, y: origin.y + intruderPos.y };
@@ -220,8 +240,7 @@ class FsmVsBlackBoxScene extends Phaser.Scene {
             this.actorGraphics.fillStyle(INTRUDER_COLOR, 1);
             this.actorGraphics.fillCircle(bugPos.x, bugPos.y, 9);
 
-            const npcColor = isBlackBox ? BLACKBOX_COLOR : STATE_COLOR[entry.state];
-            this.actorGraphics.fillStyle(npcColor, 1);
+            this.actorGraphics.fillStyle(STATE_COLOR[entry.state], 1);
             this.actorGraphics.fillCircle(postPos.x, postPos.y, 12);
             if (!isBlackBox) {
                 this.actorGraphics.lineStyle(1.5, STATE_COLOR[entry.state], 0.3);
@@ -240,10 +259,11 @@ function buildControls(root: HTMLElement, scene: FsmVsBlackBoxScene): void {
 
     buildHowTo(
         root,
-        "<b>Как пользоваться:</b> это один и тот же автомат (Patrol/Chase/Search), прогнанный по одному и тому же " +
-            "скриптованному таймлайну сразу на двух панелях. Слева — граф состояний с подписанной причиной каждого " +
-            "перехода; справа — буквально то же самое поведение, но без подписей, только действие. Жми Play/Pause, " +
-            "Step или таскай Scrub, чтобы перематывать вручную.",
+        "<b>Как пользоваться:</b> это один и тот же автомат (Patrol/Chase/Search) на одном и том же скриптованном " +
+            "таймлайне сразу на двух панелях — но у каждой свой радиус обнаружения от поста. Слева радиус задаёшь " +
+            "слайдером и видишь граф с подписанной причиной каждого перехода. Справа — чёрный ящик: такой же радиус " +
+            "«преследования», но случайный и скрытый — видно только итоговое действие (цвет), а не почему и на каком " +
+            "расстоянии оно сработало. Жми «Перебросить чёрный ящик», чтобы увидеть другое расхождение.",
     );
     buildLegend(root, [
         { color: "#8b93a3", label: "Patrol" },
@@ -339,11 +359,21 @@ function buildControls(root: HTMLElement, scene: FsmVsBlackBoxScene): void {
     buttonRow.append(playButton, stepButton, resetButton);
     root.appendChild(buttonRow);
 
+    const rerollRow = document.createElement("div");
+    rerollRow.className = "control-row";
+    const rerollButton = document.createElement("button");
+    rerollButton.textContent = "Перебросить чёрный ящик (случайный радиус)";
+    rerollButton.style.fontSize = "11px";
+    rerollButton.addEventListener("click", () => scene.rerollBlackBox());
+    rerollRow.appendChild(rerollButton);
+    root.appendChild(rerollRow);
+
     const table = document.createElement("table");
     table.className = "metrics-table";
     const rows: Array<[string, string]> = [
         ["time", "Время таймлайна"],
         ["state", "Состояние (слева)"],
+        ["stateRight", "Состояние (справа)"],
     ];
     const cells: Record<string, HTMLTableCellElement> = {};
     for (const [key, label] of rows) {
@@ -369,9 +399,12 @@ function buildControls(root: HTMLElement, scene: FsmVsBlackBoxScene): void {
     root.appendChild(hint);
 
     const tick = () => {
-        const entry = scene.currentEntry();
+        const entry = scene.leftEntry();
+        const rightEntry = scene.rightEntry();
         cells.time.textContent = `${scene.timeSec.toFixed(1)} с / ${TOTAL_DURATION} с`;
         cells.state.textContent = STATE_LABEL_RU[entry.state];
+        cells.stateRight.textContent = STATE_LABEL_RU[rightEntry.state];
+        cells.stateRight.style.color = entry.state === rightEntry.state ? "#8b93a3" : "#ef5350";
         if (entry.reason) setNarrative(entry.reason);
         scrubInput.value = String(scene.timeSec);
         requestAnimationFrame(tick);
