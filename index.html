@@ -294,6 +294,63 @@
             </a>
         </div>
 
+        <h1 style="margin-top: 48px;">Dedicated Server & Anti-Cheat</h1>
+        <p class="lead">
+            Примеры к статье «Архитектура выделенного игрового сервера: от пакета до бана читера» — почему
+            авторитетный сервер не верит клиенту, как работают спидхак, лаг-свитч, дюпы, и почему античит
+            начинается с правильного сетевого протокола.
+        </p>
+
+        <div class="grid">
+            <a class="card" href="examples/cheat-client-authority.html">
+                <span class="tag">Security</span>
+                <h2>Client Authority Flaw</h2>
+                <p>«Я нажал телепорт»: почему доверие позиции клиента ломает игру, и как валидация скорости и стен на сервере отбрасывает читера.</p>
+            </a>
+
+            <a class="card" href="examples/cheat-speedhack-budget.html">
+                <span class="tag">Anti-Cheat</span>
+                <h2>Speedhack & Time Leaky Bucket</h2>
+                <p>Ускорение времени на клиенте vs накопительный бюджет тиков на сервере — как Leaky Bucket отсекает пакетный спам.</p>
+            </a>
+
+            <a class="card" href="examples/cheat-wallhack-culling.html">
+                <span class="tag">Security</span>
+                <h2>Wallhack vs Server Culling</h2>
+                <p>Wallhack не может показать то, о чём клиент не знает: отсечение сущностей за стенами (PVS/Raycast) и защитный буфер задержки.</p>
+            </a>
+
+            <a class="card" href="examples/cheat-gold-from-air.html">
+                <span class="tag">Economy</span>
+                <h2>Gold From Thin Air</h2>
+                <p>Сравнение RPC «Дай мне 500 золота» с валидируемым действием «Забрать награду квеста» — защита от подделки запросов.</p>
+            </a>
+
+            <a class="card" href="examples/cheat-lag-switch.html">
+                <span class="tag">Netcode</span>
+                <h2>Lag Switch & Desync</h2>
+                <p>Читер замораживает исходящие пакеты, выходит из-за угла, стреляет и отправляет пачку: почему ограничение rewind cap спасает честных игроков.</p>
+            </a>
+
+            <a class="card" href="examples/cheat-dupe-race.html">
+                <span class="tag">Database</span>
+                <h2>Dupe Exploit & Race Condition</h2>
+                <p>Параллельная передача одного предмета двум игрокам: наивная проверка vs транзакция базы данных (SELECT FOR UPDATE / Redis lock).</p>
+            </a>
+
+            <a class="card" href="examples/cheat-hallucination-trap.html">
+                <span class="tag">Honeypot</span>
+                <h2>Hallucination Trap</h2>
+                <p>Ловушка в стиле Activision Ricochet: фейковые цели за непробиваемыми стенами, на которые наводятся только читеры с ESP.</p>
+            </a>
+
+            <a class="card" href="examples/cheat-aimbot-stats.html">
+                <span class="tag">Machine Learning</span>
+                <h2>Aimbot Detection (VACnet)</h2>
+                <p>Статистический анализ прицеливания: реакция за 0 мс, отсутствие овершута и неестественная дисперсия выдают аимбот.</p>
+            </a>
+        </div>
+
     </main>
 </body>
 </html>
