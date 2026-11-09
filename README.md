@@ -19,6 +19,9 @@ It also hosts two further, independent example sets:
   AI still beat RL/LLM for NPC decision-making, how a naive reward function degenerates into
   turtling or suicidal aggression, why predictability and deliberate NPC mistakes are part of
   the design, not a bug.
+- How games lie to the player (catalog article, draft in progress): pity timers and PRD,
+  true-hit dice, Poisson-disc placement, event directors, and further techniques about
+  opponents and the player's body/timing.
 
 ## Stack
 
@@ -58,6 +61,9 @@ npm run build
   Hacking (live value iteration over a 12-state MDP), Chase Timeout (FSM give-up timer vs
   infinite pursuit), FSM vs Black Box (same automaton, with/without visible transition reasons),
   Deliberate Imperfection (NPC miss chance/reaction delay vs player win rate).
+- `examples/lie-*.html` — "how games lie" examples (`src/pages/lie-*.ts`, logic in `src/lies/`):
+  Pity Timer, Dice & True Hit, Poisson vs Random, Storyteller, Attack Tokens, Possibility Map,
+  DDA (n-gram), Spawn Out of Sight, Hitboxes, Hit Stop, Interpolation, Foot IK.
 - `src/navigation` — NavMesh grid, A*, Hierarchical A*, Flow Field.
 - `src/avoidance` — local avoidance and avoidance priority.
 - `src/simulation` — world, agents, fixed-timestep loop, path-request queue.
